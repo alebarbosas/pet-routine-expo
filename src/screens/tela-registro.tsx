@@ -6,10 +6,15 @@
 // se parecia (câmera). Navegação por condicional com useState —
 // navegação real chega na Aula 7.
 //
-// CONTRATO DE TRÊS TEMPOS — preencha em cada bloco de sensor:
-//   1. PEDIR   → ______________________________
-//   2. LER     → ______________________________
-//   3. PARAR   → ______________________________  (ou: "não se aplica, porque ___")
+// CONTRATO DE TRÊS TEMPOS (detalhado em cada bloco de sensor abaixo):
+//   Localização
+//     1. PEDIR   → hasServicesEnabledAsync() + requestForegroundPermissionsAsync()
+//     2. LER     → getCurrentPositionAsync(), UMA leitura
+//     3. PARAR   → não se aplica: leitura única, nenhuma assinatura aberta
+//   Câmera
+//     1. PEDIR   → useCameraPermissions() / pedirPermissaoCamera()
+//     2. LER     → takePictureAsync() na CameraView
+//     3. PARAR   → setMostrarCamera(false) desmonta a CameraView e libera a câmera
 //
 // Restrições:
 //   • Sem useEffect, useRef — apenas useState + hooks das bibliotecas
@@ -17,15 +22,21 @@
 //   • Sem mapa — coordenada é texto
 //   • Sem salvar na galeria e sem escolher do rolo
 //   • Sem rede — foto vive no cache
+//
+// Limitação assumida: não há assinatura (addListener/watchPositionAsync) nesta
+// tela. Se houvesse, ela NÃO seria encerrada ao sair da tela, porque a
+// ferramenta para isso (useEffect com cleanup) é assunto da Aula 6.
 // ============================================================
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+// Atenção ao import: `Image` vem do expo-image, NÃO do react-native.
 import { Image } from 'expo-image';
 import * as Location from 'expo-location';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 
 import type { Pet } from '../types/pet';
-import { cores, espaco, tipografia } from '../theme';
+import { formatarLocal } from '../lib/formatar';
+import { cores, espaco, layout, tipografia, toque } from '../theme';
 
 type TelaRegistroProps = {
   pet: Pet;
@@ -33,100 +44,186 @@ type TelaRegistroProps = {
   onCancelar: () => void;
 };
 
+// P3.21 — cada cenário de falha tem a SUA mensagem, e todas dizem o que fazer.
+const MENSAGENS = {
+  localizacaoNegada:
+    'Permissão de localização negada. Toque em "Obter localização" para tentar de novo e escolha "Permitir".',
+  localizacaoBloqueada:
+    'Permissão de localização bloqueada. O sistema não vai perguntar de novo: abra as configurações do app e ative a localização.',
+  servicoDesligado:
+    'O GPS do aparelho está desligado. Ative a localização nas configurações do sistema e tente de novo.',
+  cameraNegada:
+    'Permissão de câmera negada. Toque em "Tirar foto" para tentar de novo e escolha "Permitir".',
+  cameraBloqueada:
+    'Permissão de câmera bloqueada. O sistema não vai perguntar de novo: abra as configurações do app e ative a câmera.',
+  gpsIndisponivel:
+    'Não foi possível ler a posição (sensor indisponível ou sem sinal). Vá para um local aberto e tente de novo; você também pode salvar sem localização.',
+  cameraIndisponivel:
+    'A câmera não está disponível neste aparelho (emuladores e simuladores costumam não ter). Você pode salvar o registro sem foto.',
+} as const;
+
 export function TelaRegistro({ pet, onSalvar, onCancelar }: TelaRegistroProps) {
   const [local, setLocal] = useState<Pet['local'] | null>(null);
   const [fotoUri, setFotoUri] = useState<string | null>(null);
   const [erro, setErro] = useState('');
+  // `true` quando só as configurações do sistema resolvem (permissão bloqueada).
+  const [erroBloqueado, setErroBloqueado] = useState(false);
   const [mostrarCamera, setMostrarCamera] = useState(false);
+  const [cameraPronta, setCameraPronta] = useState(false);
+  const [buscandoLocal, setBuscandoLocal] = useState(false);
 
-  // TODO P3.16: hook de permissão de câmera (das libs, não do React):
-  //   const [permissaoCamera, pedirPermissaoCamera] = useCameraPermissions();
+  // Hook de permissão da lib (permitido; useEffect/useRef não).
+  const [permissaoCamera, pedirPermissaoCamera] = useCameraPermissions();
 
-  // TODO P3.17: ref da câmera via useState (useRef não está disponível nesta prática).
-  //   const [cameraRef, setCameraRef] = useState<CameraView | null>(null);
-  //   Funciona como callback ref: <CameraView ref={setCameraRef} ... />
+  // Ref da câmera via useState: o `ref` do JSX aceita função (callback ref),
+  // então <CameraView ref={setCameraRef} /> guarda a instância no estado.
+  const [cameraRef, setCameraRef] = useState<CameraView | null>(null);
+
+  function falhar(mensagem: string, bloqueado = false) {
+    setErro(mensagem);
+    setErroBloqueado(bloqueado);
+  }
+
+  function limparErro() {
+    setErro('');
+    setErroBloqueado(false);
+  }
 
   // ----- Localização -----
-  // CONTRATO: 1. PEDIR → TODO P3.18
-  //           2. LER   → TODO P3.18
-  //           3. PARAR → não se aplica (leitura única, sem subscription)
+  // CONTRATO: 1. PEDIR → serviço ligado? depois requestForegroundPermissionsAsync()
+  //           2. LER   → getCurrentPositionAsync() — uma única leitura
+  //           3. PARAR → não se aplica: sem watchPositionAsync, nada fica aberto
   async function obterLocalizacao() {
-    // TODO P3.18: peça permissão e leia a posição.
-    //
-    //   1. Cheque se o serviço está ligado:
-    //      const servico = await Location.hasServicesEnabledAsync();
-    //      if (!servico) → setErro('GPS desligado. Ative a localização nas configurações.')
-    //
-    //   2. Peça permissão:
-    //      const { status, canAskAgain } = await Location.requestForegroundPermissionsAsync();
-    //      Trate TRÊS cenários com mensagens DISTINTAS:
-    //        • status !== 'granted' && canAskAgain  → "Permissão negada. Toque para tentar de novo."
-    //        • status !== 'granted' && !canAskAgain → "Permissão bloqueada. Vá em Configurações > Permissões."
-    //        • serviço desligado (já tratado acima)
-    //
-    //   3. Leia a posição:
-    //      const posicao = await Location.getCurrentPositionAsync({
-    //        accuracy: Location.Accuracy.High,
-    //        // TODO P3.22: justifique a escolha de Accuracy no README.
-    //        //   Por que High e não BestForNavigation? Pense em bateria.
-    //      });
-    //
-    //   4. Salve no estado:
-    //      setLocal({
-    //        latitude: posicao.coords.latitude,
-    //        longitude: posicao.coords.longitude,
-    //        precisaoMetros: posicao.coords.accuracy ?? 0,
-    //      });
-    //      setErro('');
+    if (buscandoLocal) return;
+    setBuscandoLocal(true);
+    try {
+      // Cenário 3: serviço de localização desligado.
+      const servicoLigado = await Location.hasServicesEnabledAsync();
+      if (!servicoLigado) {
+        falhar(MENSAGENS.servicoDesligado);
+        return;
+      }
+
+      // Cenários 1 e 2: negada (dá para perguntar de novo) vs. bloqueada (não dá).
+      const permissao = await Location.requestForegroundPermissionsAsync();
+      if (!permissao.granted) {
+        if (permissao.canAskAgain) {
+          falhar(MENSAGENS.localizacaoNegada);
+        } else {
+          falhar(MENSAGENS.localizacaoBloqueada, true);
+        }
+        return;
+      }
+
+      // P3.22 — Accuracy.High (~10 m, usa GPS). Motivo: o registro mostra "±Nm" e
+      // o dono quer saber em que rua/trecho foi o passeio; Balanced (~100 m) pode
+      // errar o quarteirão. Não usamos BestForNavigation/Highest porque eles
+      // mantêm o chip de GPS no máximo para navegação passo a passo — custo de
+      // bateria sem ganho aqui. Como é UMA leitura (não um watch), o gasto de
+      // bateria do High é de poucos segundos.
+      const posicao = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.High,
+      });
+
+      setLocal({
+        latitude: posicao.coords.latitude,
+        longitude: posicao.coords.longitude,
+        // `accuracy` pode ser null: sem raio informado, 0 faz o texto mostrar "±0m".
+        // Aceitável para o mock; em produção vale mostrar "precisão desconhecida".
+        precisaoMetros: posicao.coords.accuracy ?? 0,
+      });
+      limparErro();
+    } catch {
+      // Cenário 5 (parte GPS): hardware indisponível, timeout, sem sinal.
+      falhar(MENSAGENS.gpsIndisponivel);
+    } finally {
+      setBuscandoLocal(false);
+    }
   }
 
   // ----- Câmera -----
   // CONTRATO: 1. PEDIR → pedirPermissaoCamera()
   //           2. LER   → cameraRef.takePictureAsync()
-  //           3. PARAR → setMostrarCamera(false) (fecha a view)
+  //           3. PARAR → setMostrarCamera(false) (desmonta a view e libera a câmera)
   async function abrirCamera() {
-    // TODO P3.19: peça permissão de câmera e abra a view.
-    //   const { status } = await pedirPermissaoCamera();
-    //   if (status !== 'granted') {
-    //     setErro('Permissão de câmera negada.');
-    //     return;
-    //   }
-    //   setMostrarCamera(true);
-    //   setErro('');
+    // Cenário 5 (parte câmera): sem hardware (ex.: simulador de iOS).
+    const disponivel = await CameraView.isAvailableAsync();
+    if (!disponivel) {
+      falhar(MENSAGENS.cameraIndisponivel);
+      return;
+    }
+
+    // Se a permissão já foi concedida antes, não pergunta de novo.
+    const permissao = permissaoCamera?.granted ? permissaoCamera : await pedirPermissaoCamera();
+
+    // Cenário 4: câmera negada (e, além do pedido, a variante bloqueada).
+    if (!permissao.granted) {
+      if (permissao.canAskAgain) {
+        falhar(MENSAGENS.cameraNegada);
+      } else {
+        falhar(MENSAGENS.cameraBloqueada, true);
+      }
+      return;
+    }
+
+    setCameraPronta(false);
+    setMostrarCamera(true);
+    limparErro();
   }
 
   async function tirarFoto() {
-    // TODO P3.20: tire a foto e guarde o URI.
-    //   if (!cameraRef) return;
-    //   const foto = await cameraRef.takePictureAsync({ base64: false });
-    //   if (foto) {
-    //     setFotoUri(foto.uri);
-    //     setMostrarCamera(false);
-    //   }
-    //   Nota: base64: false — para exibir, o uri basta.
-    //   Salvar na galeria não é assunto desta prática.
+    if (!cameraRef || !cameraPronta) return;
+    try {
+      // base64: false — para exibir, o `uri` basta. Base64 só inflaria a memória.
+      // A foto fica no cache do app; salvar na galeria não é assunto desta prática.
+      const foto = await cameraRef.takePictureAsync({ base64: false });
+      setFotoUri(foto.uri);
+      limparErro();
+    } catch {
+      falhar(MENSAGENS.cameraIndisponivel);
+    } finally {
+      // PARAR: fecha a câmera tanto no sucesso quanto na falha.
+      setMostrarCamera(false);
+    }
   }
 
   function salvar() {
-    // TODO P3.23: chame onSalvar com os dados capturados.
-    //   onSalvar(local ?? undefined, fotoUri ?? undefined);
-    //
-    // TODO P3.24: o app funciona MESMO quando o usuário nega tudo.
-    //   Um pet sem foto e sem local ainda é um pet.
-    //   O botão Salvar fica habilitado SEMPRE.
+    // O app funciona MESMO quando o usuário nega tudo: local e foto são opcionais.
+    // Por isso o botão Salvar fica habilitado SEMPRE.
+    onSalvar(local ?? undefined, fotoUri ?? undefined);
   }
 
   // ----- Renderização: câmera ativa -----
   if (mostrarCamera) {
     return (
       <View style={styles.tela}>
-        {/* TODO P3.17 (continuação): renderize a CameraView.
-              <CameraView
-                ref={setCameraRef}
-                style={styles.camera}
-                facing="back"
-              />
-              Dois botões: "Tirar foto" (chama tirarFoto) e "Cancelar" (fecha a câmera). */}
+        <CameraView
+          ref={setCameraRef}
+          style={styles.camera}
+          facing="back"
+          onCameraReady={() => setCameraPronta(true)}
+        />
+        <View style={styles.acoes}>
+          <Pressable
+            onPress={tirarFoto}
+            disabled={!cameraPronta}
+            accessibilityRole="button"
+            style={({ pressed }) => [
+              styles.botaoAcao,
+              styles.botaoFlex,
+              (pressed || !cameraPronta) && styles.botaoPressionado,
+            ]}
+          >
+            <Text style={styles.textoBotao}>Tirar foto</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => setMostrarCamera(false)}
+            accessibilityRole="button"
+            style={({ pressed }) => [styles.botaoCancelar, pressed && styles.botaoPressionado]}
+          >
+            <Text style={styles.textoBotao}>Cancelar</Text>
+          </Pressable>
+        </View>
       </View>
     );
   }
@@ -136,29 +233,39 @@ export function TelaRegistro({ pet, onSalvar, onCancelar }: TelaRegistroProps) {
     <View style={styles.tela}>
       <Text style={tipografia.titulo}>Registrar passeio de {pet.nome}</Text>
 
-      {/* TODO P3.21: mostre o erro com mensagem DISTINTA por cenário.
-            Os cinco cenários que precisam de mensagem própria:
-              1. Permissão de localização negada (canAskAgain: true)
-              2. Permissão de localização bloqueada (canAskAgain: false)
-              3. Serviço de localização desligado
-              4. Permissão de câmera negada
-              5. Sensor/hardware indisponível
-            Cada mensagem diz ao usuário O QUE FAZER, não só que deu erro. */}
-      {erro !== '' && <Text style={styles.erro}>{erro}</Text>}
+      {erro !== '' && (
+        <View style={styles.caixaErro}>
+          <Text style={styles.erro}>{erro}</Text>
+          {erroBloqueado && (
+            <Pressable
+              onPress={() => Linking.openSettings()}
+              accessibilityRole="button"
+              style={({ pressed }) => [styles.botaoAcao, pressed && styles.botaoPressionado]}
+            >
+              <Text style={styles.textoBotao}>Abrir configurações</Text>
+            </Pressable>
+          )}
+        </View>
+      )}
 
       {/* Localização */}
       {local ? (
         <View style={styles.secao}>
-          <Text style={tipografia.corpo}>
-            {/* Formate lat/lng para HUMANOS, com precisão.
-                Ex: "Local: -8.054, -34.871 (±12m)"
-                Coordenada crua com 14 casas decimais não é informação. */}
-            Local: {local.latitude.toFixed(3)}, {local.longitude.toFixed(3)} (±{Math.round(local.precisaoMetros)}m)
-          </Text>
+          <Text style={tipografia.corpo}>{formatarLocal(local)}</Text>
         </View>
       ) : (
-        <Pressable onPress={obterLocalizacao} style={styles.botaoAcao}>
-          <Text style={styles.textoBotao}>Obter localização</Text>
+        <Pressable
+          onPress={obterLocalizacao}
+          disabled={buscandoLocal}
+          accessibilityRole="button"
+          style={({ pressed }) => [
+            styles.botaoAcao,
+            (pressed || buscandoLocal) && styles.botaoPressionado,
+          ]}
+        >
+          <Text style={styles.textoBotao}>
+            {buscandoLocal ? 'Obtendo localização…' : 'Obter localização'}
+          </Text>
         </Pressable>
       )}
 
@@ -167,22 +274,40 @@ export function TelaRegistro({ pet, onSalvar, onCancelar }: TelaRegistroProps) {
         <Image
           source={{ uri: fotoUri }}
           style={styles.previa}
-          // TODO P3.15: contentFit explícito. Por que "cover" e não "contain"?
-          //   Justifique num comentário ou no README.
+          // "cover" e não "contain": a prévia tem altura fixa e largura total;
+          // "cover" preenche o retângulo (recortando as bordas) em vez de deixar
+          // faixas vazias dos lados quando a foto tem outra proporção.
           contentFit="cover"
+          accessibilityLabel={`Prévia da foto de ${pet.nome}`}
         />
       ) : (
-        <Pressable onPress={abrirCamera} style={styles.botaoAcao}>
+        <Pressable
+          onPress={abrirCamera}
+          accessibilityRole="button"
+          style={({ pressed }) => [styles.botaoAcao, pressed && styles.botaoPressionado]}
+        >
           <Text style={styles.textoBotao}>Tirar foto</Text>
         </Pressable>
       )}
 
       {/* Ações */}
       <View style={styles.acoes}>
-        <Pressable onPress={salvar} style={styles.botaoAcao}>
+        <Pressable
+          onPress={salvar}
+          accessibilityRole="button"
+          style={({ pressed }) => [
+            styles.botaoAcao,
+            styles.botaoFlex,
+            pressed && styles.botaoPressionado,
+          ]}
+        >
           <Text style={styles.textoBotao}>Salvar</Text>
         </Pressable>
-        <Pressable onPress={onCancelar} style={styles.botaoCancelar}>
+        <Pressable
+          onPress={onCancelar}
+          accessibilityRole="button"
+          style={({ pressed }) => [styles.botaoCancelar, pressed && styles.botaoPressionado]}
+        >
           <Text style={styles.textoBotao}>Cancelar</Text>
         </Pressable>
       </View>
@@ -194,27 +319,30 @@ const styles = StyleSheet.create({
   tela: {
     flex: 1,
     padding: espaco.md,
-    paddingTop: 48,
+    paddingTop: layout.topoTela,
     backgroundColor: cores.fundo,
     gap: espaco.md,
   },
+  caixaErro: { gap: espaco.sm },
   erro: { ...tipografia.corpo, color: cores.erro },
   secao: { gap: espaco.sm },
   camera: { flex: 1, borderRadius: espaco.sm },
-  previa: { width: '100%', height: 200, borderRadius: espaco.sm },
+  previa: { width: '100%', height: layout.alturaPrevia, borderRadius: espaco.sm },
   botaoAcao: {
     backgroundColor: cores.primaria,
     padding: espaco.md,
     borderRadius: espaco.sm,
-    alignItems: 'center' as const,
+    alignItems: 'center',
   },
+  botaoFlex: { flex: 1 },
   botaoCancelar: {
     backgroundColor: cores.textoFraco,
     padding: espaco.md,
     borderRadius: espaco.sm,
-    alignItems: 'center' as const,
+    alignItems: 'center',
     flex: 1,
   },
-  textoBotao: { color: '#FFFFFF', fontWeight: 'bold' as const },
-  acoes: { flexDirection: 'row' as const, gap: espaco.md },
+  botaoPressionado: { opacity: toque.opacidadePressionado },
+  textoBotao: { color: cores.textoInverso, fontWeight: 'bold' },
+  acoes: { flexDirection: 'row', gap: espaco.md },
 });

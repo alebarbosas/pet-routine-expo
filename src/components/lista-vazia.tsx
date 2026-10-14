@@ -12,22 +12,21 @@ import { StyleSheet, Text, View } from 'react-native';
 import { cores, espaco, tipografia } from '../theme';
 
 type ListaVaziaProps = {
-  // TODO P3.12: uma prop que permita distinguir "primeiro acesso" de "busca sem resultado".
-  //   Sugestão: termoBusca?: string
-  //   Se termoBusca está definido e não-vazio → "busca sem resultado"
-  //   Senão → "primeiro acesso" (a lista está vazia de verdade)
+  // Se definido e não-vazio → "busca sem resultado".
+  // Senão → "primeiro acesso" (a lista está vazia de verdade).
+  termoBusca?: string;
 };
 
-export function ListaVazia(/* TODO P3.12: desestruture a prop */) {
-  // TODO P3.13: dois textos diferentes, conforme o cenário.
-  //   Primeiro acesso: "Nenhum pet cadastrado. Que tal adicionar um?"
-  //   Busca sem resultado: "Nenhum pet encontrado para '${termoBusca}'."
-  //   A frase da busca MENCIONA o termo procurado.
-  //   As duas frases são DIFERENTES — repetir a mesma é erro.
+export function ListaVazia({ termoBusca }: ListaVaziaProps) {
+  const termo = termoBusca?.trim() ?? '';
+  const buscando = termo !== '';
+
   return (
     <View style={styles.container}>
       <Text style={styles.texto}>
-        {/* TODO P3.13 */}
+        {buscando
+          ? `Nenhum pet encontrado para "${termo}". Confira a grafia ou apague a busca para ver todos.`
+          : 'Nenhum pet cadastrado. Que tal adicionar um? Puxe a lista para baixo para recarregar.'}
       </Text>
     </View>
   );
@@ -35,12 +34,13 @@ export function ListaVazia(/* TODO P3.12: desestruture a prop */) {
 
 const styles = StyleSheet.create({
   container: {
-    // TODO P3.14: centralize e use padding generoso (espaco.lg ou xl)
-    alignItems: 'center' as const,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: espaco.xl,
   },
   texto: {
     ...tipografia.corpo,
     color: cores.textoFraco,
-    textAlign: 'center' as const,
+    textAlign: 'center',
   },
 });

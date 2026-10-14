@@ -13,36 +13,31 @@
 import { type ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import { cores, espaco } from '../theme';
+import { cores, espaco, layout, sombra } from '../theme';
 
 type CardProps = {
   children: ReactNode;
-  // TODO P2.5: prop opcional `destacado?: boolean` que muda a aparência
+  // Prop opcional que muda a aparência (borda colorida).
   destacado?: boolean;
 };
 
-export function Card({ children /* TODO P2.6: desestruture destacado */, destacado }: CardProps) {
-  // TODO P2.7: use array de estilos — base sempre, variante só quando destacado.
-  //   Exemplo: style={[styles.card, destacado && styles.cardDestacado]}
+export function Card({ children, destacado }: CardProps) {
+  // Array de estilos: base sempre, variante só quando destacado.
   return <View style={[styles.card, destacado && styles.cardDestacado]}>{children}</View>;
 }
 
 const styles = StyleSheet.create({
   card: {
-    // TODO P2.8: padding, borderRadius e backgroundColor — vindos dos tokens.
-    //   Nenhum hex e nenhum número solto neste arquivo.
     padding: espaco.md,
     borderRadius: espaco.sm,
     backgroundColor: cores.cartao,
-    // TODO P2.9: sombra com `boxShadow` (uma string, ex: '0 1px 3px rgba(0,0,0,0.12)')
-    //   e espaçamento entre filhos com `gap`
-    boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+    // Sombra com `boxShadow` (uma string) e espaçamento entre filhos com `gap`.
+    boxShadow: sombra.card,
     gap: espaco.sm,
   },
   cardDestacado: {
-    // TODO P2.10: o que muda quando o card é destacado?
-    //   Borda colorida? Fundo diferente? Escolha e justifique no README.
-    borderWidth: 2,
+    // Destacado = borda colorida (justificativa no README da Prática 2).
+    borderWidth: layout.bordaDestaque,
     borderColor: cores.primaria,
   },
 });
