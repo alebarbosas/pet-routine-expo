@@ -1,22 +1,9 @@
-// ============================================================
-// Prática 3 — Agrupamento e filtragem de pets
-// Disciplina: Desenvolvimento Mobile (2026.2.DM) — CESAR School
-//
-// Funções puras — sem JSX, sem estado, sem React.
-// Moram aqui para serem testáveis e reutilizáveis independentemente.
-// ============================================================
-
 import type { Pet } from '../types/pet';
 import { rotuloStatusPasseio } from '../types/pet';
 
 export type Secao = { title: string; data: Pet[] };
 
 export function agrupar(pets: Pet[]): Secao[] {
-  // TODO P3.2: agrupe pelo critério que o grupo escolheu.
-  // TODO P3.3: descarte grupos vazios — seção sem itens não aparece na lista.
-  // TODO P3.4: a ordem dos grupos é uma DECISÃO de produto.
-  // A decisão foi agrupar pelo statusPasseio. A ordem é 'pendente', 'concluido', 'cancelado' 
-  // porque 'pendente' é o que exige ação do usuário mais imediatamente.
   const grupos = {
     pendente: [] as Pet[],
     concluido: [] as Pet[],
@@ -28,24 +15,32 @@ export function agrupar(pets: Pet[]): Secao[] {
   }
 
   const secoes: Secao[] = [];
-  
+
   if (grupos.pendente.length > 0) {
-    secoes.push({ title: rotuloStatusPasseio('pendente'), data: grupos.pendente });
+    secoes.push({
+      title: rotuloStatusPasseio('pendente'),
+      data: grupos.pendente,
+    });
   }
   if (grupos.concluido.length > 0) {
-    secoes.push({ title: rotuloStatusPasseio('concluido'), data: grupos.concluido });
+    secoes.push({
+      title: rotuloStatusPasseio('concluido'),
+      data: grupos.concluido,
+    });
   }
   if (grupos.cancelado.length > 0) {
-    secoes.push({ title: rotuloStatusPasseio('cancelado'), data: grupos.cancelado });
+    secoes.push({
+      title: rotuloStatusPasseio('cancelado'),
+      data: grupos.cancelado,
+    });
   }
 
   return secoes;
 }
 
 export function filtrarPorNome(pets: Pet[], busca: string): Pet[] {
-  // TODO P3.5: busca case-insensitive. Busca vazia devolve todos.
   if (!busca.trim()) return pets;
-  
+
   const termo = busca.toLowerCase();
-  return pets.filter(p => p.nome.toLowerCase().includes(termo));
+  return pets.filter((p) => p.nome.toLowerCase().includes(termo));
 }
