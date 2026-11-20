@@ -1,7 +1,8 @@
-{
+﻿{
   "expo": {
     "name": "pet-routine-expo",
     "slug": "pet-routine-expo",
+    "scheme": "petroutine",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -22,7 +23,18 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-image"
+      "expo-image",
+      "expo-router",
+      "expo-sqlite",
+      "expo-secure-store",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Permitir que o Pet Routine acesse sua galeria para escolher a foto do seu pet.",
+          "cameraPermission": "Permitir que o Pet Routine acesse a câmera para fotografar seu pet.",
+          "microphonePermission": false
+        }
+      ]
     ]
   }
 }

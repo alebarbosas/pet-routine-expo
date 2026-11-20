@@ -1,39 +1,24 @@
-// ============================================================
-// Prática 3 — Tela principal: lista de pets + registro de passeio
-// Disciplina: Desenvolvimento Mobile (2026.2.DM) — CESAR School
-//
-// Na Prática 2 esta tela mostrava um pet em destaque.
-// Agora mostra uma lista de verdade com SectionList, toque
-// interativo e registro de passeio com sensores.
-//
-// Restrições:
-//   • Nenhuma ScrollView envolvendo a lista
-//   • Nenhuma mutação de estado — toda mudança cria array novo
-//   • Agrupamento e filtro moram em src/lib/, não aqui
-//   • Sem useEffect para sensores (cleanup é assunto da Aula 6)
-// ============================================================
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { SectionList, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Link } from 'expo-router';
 
-import type { Pet } from './src/types/pet';
-import { PETS } from './src/data/pets';
-import { agrupar, filtrarPorNome, type Secao } from './src/lib/agrupar';
-import { ItemPet } from './src/components/item-pet';
-import { ListaVazia } from './src/components/lista-vazia';
-import { TelaRegistro } from './src/screens/tela-registro';
-import { cores, espaco, tipografia } from './src/theme';
+import type { Pet } from '../types/pet';
+import { PETS } from '../data/pets';
+import { agrupar, filtrarPorNome, type Secao } from '../lib/agrupar';
+import { ItemPet } from '../components/item-pet';
+import { ListaVazia } from '../components/lista-vazia';
+import { TelaRegistro } from './tela-registro';
+import { cores, espaco, tipografia } from '../theme';
 
-export default function App() {
-  // TODO P3.28: declare os quatro estados da tela:
+export function TelaPets() {
   const [pets, setPets] = useState<Pet[]>(PETS);
   const [busca, setBusca] = useState('');
   const [atualizando, setAtualizando] = useState(false);
   const [petRegistrando, setPetRegistrando] = useState<string | null>(null);
 
-  // TODO P3.29: alternar status do passeio — array novo, objeto novo. Nada de mutação.
   function alternarStatus(id: string) {
-    setPets(anteriores =>
-      anteriores.map(p =>
+    setPets((anteriores) =>
+      anteriores.map((p) =>
         p.id === id
           ? { ...p, statusPasseio: p.statusPasseio === 'concluido' ? 'pendente' : 'concluido' }
           : p
@@ -41,25 +26,22 @@ export default function App() {
     );
   }
 
-  // TODO P3.30: remover pet — array novo via filter.
   function removerPet(id: string) {
-    setPets(anteriores => anteriores.filter(p => p.id !== id));
+    setPets((anteriores) => anteriores.filter((p) => p.id !== id));
   }
 
-  // TODO P3.31: recarregar — simula refresh, volta ao mock e limpa a busca.
   async function recarregar() {
     setAtualizando(true);
-    await new Promise(r => setTimeout(r, 800));
+    await new Promise((r) => setTimeout(r, 800));
     setPets(PETS);
     setBusca('');
     setAtualizando(false);
   }
 
-  // TODO P3.32: receber o registro de passeio da TelaRegistro.
   function handleRegistro(local?: Pet['local'], fotoUri?: string) {
     if (!petRegistrando) return;
-    setPets(anteriores =>
-      anteriores.map(p =>
+    setPets((anteriores) =>
+      anteriores.map((p) =>
         p.id === petRegistrando
           ? { ...p, statusPasseio: 'concluido' as const, local, fotoUri }
           : p
@@ -68,8 +50,7 @@ export default function App() {
     setPetRegistrando(null);
   }
 
-  // TODO P3.33: renderização condicional
-  const petAlvo = pets.find(p => p.id === petRegistrando);
+  const petAlvo = pets.find((p) => p.id === petRegistrando);
   if (petAlvo) {
     return (
       <TelaRegistro
@@ -80,7 +61,6 @@ export default function App() {
     );
   }
 
-  // TODO P3.34: seções da lista — filtrar E DEPOIS agrupar.
   const secoes = agrupar(filtrarPorNome(pets, busca));
 
   return (
@@ -88,7 +68,6 @@ export default function App() {
       <SectionList<Pet, Secao>
         sections={secoes}
         keyExtractor={(item) => item.id}
-        // TODO P3.35: configure o SectionList completo
         renderItem={({ item }) => (
           <ItemPet
             pet={item}
@@ -106,7 +85,14 @@ export default function App() {
         onRefresh={recarregar}
         ListHeaderComponent={
           <View style={styles.cabecalho}>
-            {/* TODO P3.36: TextInput de busca. */}
+            <View style={styles.barraLinks}>
+              <Link href="/foto-do-pet" style={styles.linkAcao}>
+                Foto do Pet (1:1)
+              </Link>
+              <Link href="/sobre" style={styles.linkAcao}>
+                Sobre o App
+              </Link>
+            </View>
             <TextInput
               value={busca}
               onChangeText={setBusca}
@@ -124,12 +110,23 @@ export default function App() {
 const styles = StyleSheet.create({
   tela: {
     flex: 1,
-    paddingTop: 48,
     backgroundColor: cores.fundo,
   },
   cabecalho: {
+    gap: espaco.sm,
     paddingHorizontal: espaco.md,
+    paddingTop: espaco.sm,
     paddingBottom: espaco.sm,
+  },
+  barraLinks: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: espaco.sm,
+  },
+  linkAcao: {
+    color: '#2563EB',
+    fontWeight: '600',
+    fontSize: tipografia.corpo.fontSize,
   },
   conteudo: {
     gap: espaco.sm,
@@ -141,8 +138,6 @@ const styles = StyleSheet.create({
     backgroundColor: cores.fundo,
     paddingVertical: espaco.sm,
     paddingHorizontal: espaco.md,
-    // Remover margens negativas, ou padding para alinhar com conteudo sem gap bugar. 
-    // Como conteudo tem paddingHorizontal, o cabecalhoSecao com o mesmo resolve
   },
   busca: {
     borderWidth: 1,
