@@ -1,22 +1,34 @@
 ﻿import { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Pressable,
   SectionList,
   StyleSheet,
-  Text,
-  TextInput,
   View,
 } from 'react-native';
 import { Link, useRouter } from 'expo-router';
 
 import type { EspeciePet, Pet, PortePet } from '../types/pet';
 import { agrupar, filtrarPorNome, type Secao } from '../lib/agrupar';
-import { ItemPet } from '../components/item-pet';
+import { CardPet } from '../components/item-pet';
 import { ListaVazia } from '../components/lista-vazia';
 import { TelaRegistro } from './tela-registro';
 import { usePetStore } from '../store/use-pet-store';
 import { useTheme } from '../context/theme-context';
-import { espaco, tipografia } from '../theme';
+import {
+  Badge,
+  BadgeText,
+  Button,
+  ButtonSpinner,
+  ButtonText,
+  Card,
+  Heading,
+  HStack,
+  Input,
+  InputField,
+  Text,
+  VStack,
+} from '../components/ui/gluestack-ui';
 
 const ESPECIES: EspeciePet[] = ['cachorro', 'gato', 'ave', 'outro'];
 const PORTES: PortePet[] = ['pequeno', 'medio', 'grande'];
@@ -51,7 +63,7 @@ export function TelaPets() {
       await registrarPasseio(petRegistrando, local, fotoUri);
       setPetRegistrando(null);
     } catch {
-      // Erro já registrado na store
+      // Erro tratado na store
     }
   }
 
@@ -70,7 +82,7 @@ export function TelaPets() {
       setNovaIdade('12');
       setMostrarForm(false);
     } catch {
-      // Erro já exibido no banner da tela
+      // Erro exibido no banner
     }
   }
 
@@ -85,6 +97,8 @@ export function TelaPets() {
     );
   }
 
+  const concluidos = pets.filter((p) => p.statusPasseio === 'concluido').length;
+  const pendentes = pets.filter((p) => p.statusPasseio === 'pendente').length;
   const secoes = agrupar(filtrarPorNome(pets, busca));
 
   return (
@@ -93,7 +107,7 @@ export function TelaPets() {
         sections={secoes}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
-          <ItemPet
+          <CardPet
             pet={item}
             onAbrirDetalhe={(id) =>
               router.push({ pathname: '/pet/[id]', params: { id } })
@@ -105,36 +119,65 @@ export function TelaPets() {
           />
         )}
         renderSectionHeader={({ section }) => (
-          <Text
+          <View
             style={[
-              styles.cabecalhoSecao,
-              { color: tema.primaria, backgroundColor: tema.fundo },
+              styles.secaoHeader,
+              { backgroundColor: tema.fundo },
             ]}
           >
-            {section.title}
-          </Text>
+            <Heading size="md">{section.title}</Heading>
+          </View>
         )}
         ListEmptyComponent={
-          <ListaVazia termoBusca={busca} totalPets={pets.length} />
+          isLoading ? (
+            <Card variant="outline">
+              <VStack space="sm" className="items-center p-4">
+                <ActivityIndicator size="large" color={tema.primaria} />
+                <Text size="sm" muted>
+                  Sincronizando pets com o servidor...
+                </Text>
+              </VStack>
+            </Card>
+          ) : (
+            <ListaVazia termoBusca={busca} totalPets={pets.length} />
+          )
         }
         stickySectionHeadersEnabled={true}
         refreshing={isLoading}
         onRefresh={fetchPets}
         ListHeaderComponent={
-          <View style={styles.cabecalho}>
-            <View style={styles.barraTopo}>
-              <Pressable
+          <VStack space="md" style={styles.cabecalho}>
+            <Card variant="filled">
+              <HStack className="justify-between flex-wrap">
+                <VStack space="xs">
+                  <Text size="xs" muted className="uppercase font-bold">
+                    Resumo Diário
+                  </Text>
+                  <Heading size="md">
+                    {concluidos} de {pets.length} passeios feitos
+                  </Heading>
+                </VStack>
+                <HStack space="xs">
+                  <Badge action="success">
+                    <BadgeText>{concluidos} ok</BadgeText>
+                  </Badge>
+                  <Badge action="warning">
+                    <BadgeText>{pendentes} pend.</BadgeText>
+                  </Badge>
+                </HStack>
+              </HStack>
+            </Card>
+
+            <HStack space="sm">
+              <Button
+                action="primary"
+                className="flex-1"
                 onPress={() => setMostrarForm((v) => !v)}
-                style={({ pressed }) => [
-                  styles.botaoNovo,
-                  { backgroundColor: tema.primaria },
-                  pressed && styles.pressionado,
-                ]}
               >
-                <Text style={styles.textoBotaoNovo}>
-                  {mostrarForm ? 'Fechar formulário' : '+ Novo Pet'}
-                </Text>
-              </Pressable>
+                <ButtonText>
+                  {mostrarForm ? 'Fechar Formulário' : '+ Novo Pet'}
+                </ButtonText>
+              </Button>
 
               <Link
                 href="/foto-do-pet"
@@ -149,7 +192,7 @@ export function TelaPets() {
               >
                 Foto 1:1
               </Link>
-            </View>
+            </HStack>
 
             {error ? (
               <View
@@ -161,154 +204,157 @@ export function TelaPets() {
                   },
                 ]}
               >
-                <Text style={[styles.textoErro, { color: tema.erro }]}>
-                  {error}
-                </Text>
-                <Pressable onPress={fetchPets}>
-                  <Text style={[styles.tentarNovamente, { color: tema.azulTexto }]}>
-                    Tentar novamente
+                <VStack space="xs">
+                  <Text
+                    size="sm"
+                    className="font-semibold"
+                    style={{ color: tema.erro }}
+                  >
+                    {error}
                   </Text>
-                </Pressable>
+                  <Pressable onPress={fetchPets}>
+                    <Text
+                      size="sm"
+                      className="font-bold"
+                      style={{ color: tema.azulTexto }}
+                    >
+                      Tentar novamente
+                    </Text>
+                  </Pressable>
+                </VStack>
               </View>
             ) : null}
 
             {mostrarForm ? (
-              <View
-                style={[
-                  styles.cartaoForm,
-                  { backgroundColor: tema.cartao, borderColor: tema.borda },
-                ]}
-              >
-                <Text style={[styles.tituloForm, { color: tema.primaria }]}>
-                  Cadastrar novo pet
-                </Text>
-                <TextInput
-                  value={novoNome}
-                  onChangeText={setNovoNome}
-                  placeholder="Nome do pet (ex: Thor)"
-                  placeholderTextColor={tema.textoFraco}
-                  style={[
-                    styles.busca,
-                    {
-                      borderColor: tema.borda,
-                      color: tema.texto,
-                      backgroundColor: tema.fundo,
-                    },
-                  ]}
-                />
+              <Card variant="elevated">
+                <VStack space="md">
+                  <Heading size="md">Cadastrar novo pet</Heading>
 
-                <Text style={[styles.rotulo, { color: tema.texto }]}>Espécie</Text>
-                <View style={styles.linhaOpcoes}>
-                  {ESPECIES.map((esp) => {
-                    const ativo = novaEspecie === esp;
-                    return (
-                      <Pressable
-                        key={esp}
-                        onPress={() => setNovaEspecie(esp)}
-                        style={[
-                          styles.chip,
-                          {
-                            borderColor: ativo ? tema.azulClaro : tema.borda,
-                            backgroundColor: ativo ? tema.azulSuave : tema.fundo,
-                          },
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.textoChip,
-                            { color: ativo ? tema.azulTexto : tema.texto },
-                            ativo && styles.textoChipAtivo,
-                          ]}
-                        >
-                          {esp}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
+                  <VStack space="xs">
+                    <Text size="sm" className="font-semibold">
+                      Nome do pet
+                    </Text>
+                    <Input isDisabled={isLoading}>
+                      <InputField
+                        value={novoNome}
+                        onChangeText={setNovoNome}
+                        placeholder="Ex: Thor"
+                      />
+                    </Input>
+                  </VStack>
 
-                <Text style={[styles.rotulo, { color: tema.texto }]}>Porte</Text>
-                <View style={styles.linhaOpcoes}>
-                  {PORTES.map((prt) => {
-                    const ativo = novoPorte === prt;
-                    return (
-                      <Pressable
-                        key={prt}
-                        onPress={() => setNovoPorte(prt)}
-                        style={[
-                          styles.chip,
-                          {
-                            borderColor: ativo ? tema.azulClaro : tema.borda,
-                            backgroundColor: ativo ? tema.azulSuave : tema.fundo,
-                          },
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.textoChip,
-                            { color: ativo ? tema.azulTexto : tema.texto },
-                            ativo && styles.textoChipAtivo,
-                          ]}
-                        >
-                          {prt}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
+                  <VStack space="xs">
+                    <Text size="sm" className="font-semibold">
+                      Espécie
+                    </Text>
+                    <HStack space="xs" className="flex-wrap">
+                      {ESPECIES.map((esp) => {
+                        const ativo = novaEspecie === esp;
+                        return (
+                          <Pressable
+                            key={esp}
+                            onPress={() => setNovaEspecie(esp)}
+                            style={[
+                              styles.chip,
+                              {
+                                borderColor: ativo
+                                  ? tema.azulClaro
+                                  : tema.borda,
+                                backgroundColor: ativo
+                                  ? tema.azulSuave
+                                  : tema.fundo,
+                              },
+                            ]}
+                          >
+                            <Text
+                              size="sm"
+                              className="capitalize font-semibold"
+                              style={{
+                                color: ativo ? tema.azulTexto : tema.texto,
+                              }}
+                            >
+                              {esp}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                    </HStack>
+                  </VStack>
 
-                <Text style={[styles.rotulo, { color: tema.texto }]}>
-                  Idade (meses)
-                </Text>
-                <TextInput
-                  value={novaIdade}
-                  onChangeText={setNovaIdade}
-                  keyboardType="numeric"
-                  placeholder="12"
-                  placeholderTextColor={tema.textoFraco}
-                  style={[
-                    styles.busca,
-                    {
-                      borderColor: tema.borda,
-                      color: tema.texto,
-                      backgroundColor: tema.fundo,
-                    },
-                  ]}
-                />
+                  <VStack space="xs">
+                    <Text size="sm" className="font-semibold">
+                      Porte
+                    </Text>
+                    <HStack space="xs" className="flex-wrap">
+                      {PORTES.map((prt) => {
+                        const ativo = novoPorte === prt;
+                        return (
+                          <Pressable
+                            key={prt}
+                            onPress={() => setNovoPorte(prt)}
+                            style={[
+                              styles.chip,
+                              {
+                                borderColor: ativo
+                                  ? tema.azulClaro
+                                  : tema.borda,
+                                backgroundColor: ativo
+                                  ? tema.azulSuave
+                                  : tema.fundo,
+                              },
+                            ]}
+                          >
+                            <Text
+                              size="sm"
+                              className="capitalize font-semibold"
+                              style={{
+                                color: ativo ? tema.azulTexto : tema.texto,
+                              }}
+                            >
+                              {prt}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                    </HStack>
+                  </VStack>
 
-                <Pressable
-                  onPress={handleCriarPet}
-                  disabled={novoNome.trim() === '' || isLoading}
-                  style={({ pressed }) => [
-                    styles.botaoSalvar,
-                    { backgroundColor: tema.primaria },
-                    (novoNome.trim() === '' || isLoading) &&
-                      styles.botaoDesabilitado,
-                    pressed && styles.pressionado,
-                  ]}
-                >
-                  <Text style={styles.textoBotaoNovo}>
-                    {isLoading ? 'Salvando...' : 'Salvar Pet'}
-                  </Text>
-                </Pressable>
-              </View>
+                  <VStack space="xs">
+                    <Text size="sm" className="font-semibold">
+                      Idade (meses)
+                    </Text>
+                    <Input isDisabled={isLoading}>
+                      <InputField
+                        value={novaIdade}
+                        onChangeText={setNovaIdade}
+                        keyboardType="numeric"
+                        placeholder="12"
+                      />
+                    </Input>
+                  </VStack>
+
+                  <Button
+                    action="primary"
+                    isDisabled={novoNome.trim() === '' || isLoading}
+                    onPress={handleCriarPet}
+                  >
+                    {isLoading ? <ButtonSpinner /> : null}
+                    <ButtonText>
+                      {isLoading ? 'Salvando...' : 'Salvar Pet'}
+                    </ButtonText>
+                  </Button>
+                </VStack>
+              </Card>
             ) : null}
 
-            <TextInput
-              value={busca}
-              onChangeText={setBusca}
-              placeholder="Buscar pet por nome..."
-              placeholderTextColor={tema.textoFraco}
-              style={[
-                styles.busca,
-                {
-                  borderColor: tema.borda,
-                  color: tema.texto,
-                  backgroundColor: tema.cartao,
-                },
-              ]}
-            />
-          </View>
+            <Input>
+              <InputField
+                value={busca}
+                onChangeText={setBusca}
+                placeholder="Buscar pet por nome..."
+              />
+            </Input>
+          </VStack>
         }
         contentContainerStyle={styles.conteudo}
       />
@@ -321,106 +367,35 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   cabecalho: {
-    gap: espaco.sm,
-    paddingTop: espaco.sm,
-    paddingBottom: espaco.sm,
+    paddingTop: 12,
+    paddingBottom: 6,
   },
-  barraTopo: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: espaco.sm,
+  conteudo: {
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingBottom: 28,
   },
-  botaoNovo: {
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: 10,
-  },
-  botaoSalvar: {
-    paddingVertical: 12,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  botaoDesabilitado: {
-    opacity: 0.45,
-  },
-  textoBotaoNovo: {
-    color: '#FAF8F5',
-    fontWeight: '600',
-    fontSize: tipografia.corpo.fontSize,
+  secaoHeader: {
+    paddingVertical: 8,
   },
   linkAcao: {
     borderWidth: 1,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 10,
+    paddingVertical: 13,
+    paddingHorizontal: 16,
+    borderRadius: 12,
     overflow: 'hidden',
-    fontWeight: '600',
-    fontSize: tipografia.corpo.fontSize,
+    fontWeight: '700',
+    fontSize: 15,
   },
   caixaErro: {
     borderWidth: 1,
-    borderRadius: 10,
-    padding: espaco.sm,
-    gap: espaco.xs,
-  },
-  textoErro: {
-    ...tipografia.corpo,
-    fontWeight: '600',
-  },
-  tentarNovamente: {
-    ...tipografia.corpo,
-    fontWeight: '700',
-  },
-  cartaoForm: {
     borderRadius: 12,
-    padding: espaco.md,
-    gap: espaco.sm,
-    borderWidth: 1,
-  },
-  tituloForm: {
-    ...tipografia.titulo,
-    fontSize: 16,
-  },
-  rotulo: {
-    ...tipografia.corpo,
-    fontWeight: '600',
-  },
-  linhaOpcoes: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: espaco.sm,
+    padding: 12,
   },
   chip: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 16,
+    paddingVertical: 7,
+    paddingHorizontal: 14,
+    borderRadius: 999,
     borderWidth: 1,
-  },
-  textoChip: {
-    ...tipografia.corpo,
-    textTransform: 'capitalize',
-  },
-  textoChipAtivo: {
-    fontWeight: '700',
-  },
-  conteudo: {
-    gap: espaco.sm,
-    paddingHorizontal: espaco.md,
-    paddingBottom: espaco.lg,
-  },
-  cabecalhoSecao: {
-    ...tipografia.titulo,
-    fontSize: 18,
-    paddingVertical: espaco.sm,
-  },
-  busca: {
-    borderWidth: 1,
-    borderRadius: 10,
-    padding: espaco.sm,
-    fontSize: tipografia.corpo.fontSize,
-  },
-  pressionado: {
-    opacity: 0.8,
   },
 });

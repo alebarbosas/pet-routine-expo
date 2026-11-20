@@ -1,11 +1,24 @@
 ﻿import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { Link } from 'expo-router';
 import { usePetStore } from '../../store/use-pet-store';
 import { useAuthStore } from '../../store/use-auth-store';
 import { logoutUser } from '../../services/auth-service';
 import { useTheme } from '../../context/theme-context';
-import { espaco, tipografia } from '../../theme';
+import { NativePetReminderSettings } from '../../components/native-pet-reminder-settings';
+import { OtaStatusCard } from '../../components/ota-status-card';
+import {
+  Badge,
+  BadgeText,
+  Button,
+  ButtonSpinner,
+  ButtonText,
+  Card,
+  Heading,
+  HStack,
+  Text,
+  VStack,
+} from '../../components/ui/gluestack-ui';
 
 export default function TelaEstatisticas() {
   const pets = usePetStore((state) => state.pets);
@@ -35,111 +48,123 @@ export default function TelaEstatisticas() {
       contentContainerStyle={styles.conteudo}
     >
       <View style={[styles.cartaoDestaque, { backgroundColor: tema.primaria }]}>
-        <Text style={[styles.rotuloDestaque, { color: tema.azulClaro }]}>
-          Meta de passeios de hoje
-        </Text>
-        <Text style={styles.valorDestaque}>{percentual}%</Text>
-        <Text style={styles.subtituloDestaque}>
-          {concluidos} de {total} passeios concluídos
-        </Text>
+        <VStack space="xs">
+          <HStack className="justify-between">
+            <Text size="sm" style={{ color: tema.azulClaro, fontWeight: '700' }}>
+              Meta de passeios de hoje
+            </Text>
+            <Badge action="info">
+              <BadgeText>{concluidos}/{total}</BadgeText>
+            </Badge>
+          </HStack>
+          <Heading size="2xl" style={{ color: '#FAF8F5', fontSize: 38 }}>
+            {percentual}%
+          </Heading>
+          <Text size="sm" style={{ color: '#FAF8F5' }}>
+            {concluidos} de {total} passeios concluídos hoje
+          </Text>
+        </VStack>
       </View>
 
       <View style={styles.grade}>
-        <View
-          style={[
-            styles.cartaoMetrica,
-            { backgroundColor: tema.cartao, borderColor: tema.borda },
-          ]}
-        >
-          <Text style={[styles.numero, { color: tema.primaria }]}>{total}</Text>
-          <Text style={[styles.rotuloMetrica, { color: tema.textoFraco }]}>
-            Total de Pets
-          </Text>
-        </View>
-        <View
-          style={[
-            styles.cartaoMetrica,
-            { backgroundColor: tema.cartao, borderColor: tema.borda },
-          ]}
-        >
-          <Text style={[styles.numero, { color: tema.sucesso }]}>{concluidos}</Text>
-          <Text style={[styles.rotuloMetrica, { color: tema.textoFraco }]}>
-            Concluídos
-          </Text>
-        </View>
-        <View
-          style={[
-            styles.cartaoMetrica,
-            { backgroundColor: tema.cartao, borderColor: tema.borda },
-          ]}
-        >
-          <Text style={[styles.numero, { color: tema.alerta }]}>{pendentes}</Text>
-          <Text style={[styles.rotuloMetrica, { color: tema.textoFraco }]}>
-            Pendentes
-          </Text>
-        </View>
-        <View
-          style={[
-            styles.cartaoMetrica,
-            { backgroundColor: tema.cartao, borderColor: tema.borda },
-          ]}
-        >
-          <Text style={[styles.numero, { color: tema.erro }]}>{cancelados}</Text>
-          <Text style={[styles.rotuloMetrica, { color: tema.textoFraco }]}>
-            Cancelados
-          </Text>
-        </View>
+        <Card variant="elevated" style={styles.celulaMetrica}>
+          <VStack space="xs">
+            <Heading size="xl">{total}</Heading>
+            <Text size="sm" muted>
+              Total de Pets
+            </Text>
+          </VStack>
+        </Card>
+
+        <Card variant="elevated" style={styles.celulaMetrica}>
+          <VStack space="xs">
+            <Heading size="xl" style={{ color: tema.sucesso }}>
+              {concluidos}
+            </Heading>
+            <Text size="sm" muted>
+              Concluídos
+            </Text>
+          </VStack>
+        </Card>
+
+        <Card variant="elevated" style={styles.celulaMetrica}>
+          <VStack space="xs">
+            <Heading size="xl" style={{ color: tema.alerta }}>
+              {pendentes}
+            </Heading>
+            <Text size="sm" muted>
+              Pendentes
+            </Text>
+          </VStack>
+        </Card>
+
+        <Card variant="elevated" style={styles.celulaMetrica}>
+          <VStack space="xs">
+            <Heading size="xl" style={{ color: tema.erro }}>
+              {cancelados}
+            </Heading>
+            <Text size="sm" muted>
+              Cancelados
+            </Text>
+          </VStack>
+        </Card>
       </View>
 
-      <View
-        style={[
-          styles.cartaoInfo,
-          { backgroundColor: tema.cartao, borderColor: tema.borda },
-        ]}
-      >
-        <Text style={[styles.tituloSecao, { color: tema.primaria }]}>
-          Perfil e Conta Autenticada
-        </Text>
-        <Text style={[styles.corpo, { color: tema.texto }]}>
-          Tutor: {user?.name ?? 'Usuário autenticado'}{'\n'}
-          E-mail: {user?.email ?? '—'}
-        </Text>
+      <NativePetReminderSettings />
 
-        <Pressable
-          onPress={toggleTheme}
-          style={({ pressed }) => [
-            styles.botaoTema,
-            { backgroundColor: tema.azulSuave, borderColor: tema.azulClaro },
-            pressed && styles.pressionado,
-          ]}
-        >
-          <Text style={[styles.textoBotaoTema, { color: tema.azulTexto }]}>
-            Alternar para modo {modo === 'claro' ? 'Escuro' : 'Claro'}
-          </Text>
-        </Pressable>
+      <OtaStatusCard />
 
-        <Pressable
-          onPress={handleLogout}
-          disabled={saindo}
-          style={({ pressed }) => [
-            styles.botaoSair,
-            { backgroundColor: tema.erro },
-            saindo && styles.desabilitado,
-            pressed && styles.pressionado,
-          ]}
-        >
-          <Text style={styles.textoBotaoClaro}>
-            {saindo ? 'Saindo...' : 'Sair da Conta (Logout)'}
-          </Text>
-        </Pressable>
+      <Card variant="elevated">
+        <VStack space="md">
+          <HStack className="justify-between">
+            <Heading size="md">Perfil e Conta Autenticada</Heading>
+            <Badge action="success">
+              <BadgeText>JWT Ativo</BadgeText>
+            </Badge>
+          </HStack>
 
-        <Link href="/settings" style={[styles.link, { color: tema.azulTexto }]}>
-          Abrir Configurações (/settings)
-        </Link>
-        <Link href="/sobre" style={[styles.link, { color: tema.azulTexto }]}>
-          Ver página institucional (/sobre)
-        </Link>
-      </View>
+          <VStack space="xs">
+            <Text size="sm">
+              Tutor: {user?.name ?? 'Usuário autenticado'}
+            </Text>
+            <Text size="sm" muted>
+              E-mail: {user?.email ?? '—'}
+            </Text>
+          </VStack>
+
+          <Button action="secondary" onPress={toggleTheme}>
+            <ButtonText>
+              Alternar para modo {modo === 'claro' ? 'Escuro' : 'Claro'}
+            </ButtonText>
+          </Button>
+
+          <Button
+            action="negative"
+            isDisabled={saindo}
+            onPress={handleLogout}
+          >
+            {saindo ? <ButtonSpinner /> : null}
+            <ButtonText>
+              {saindo ? 'Saindo...' : 'Sair da Conta (Logout)'}
+            </ButtonText>
+          </Button>
+
+          <HStack className="justify-between">
+            <Link
+              href="/settings"
+              style={{ color: tema.azulTexto, fontWeight: '700', fontSize: 14 }}
+            >
+              Configurações (/settings)
+            </Link>
+            <Link
+              href="/sobre"
+              style={{ color: tema.azulTexto, fontWeight: '700', fontSize: 14 }}
+            >
+              Sobre (/sobre)
+            </Link>
+          </HStack>
+        </VStack>
+      </Card>
     </ScrollView>
   );
 }
@@ -149,88 +174,20 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   conteudo: {
-    padding: espaco.md,
-    gap: espaco.md,
+    padding: 16,
+    gap: 16,
+    paddingBottom: 32,
   },
   cartaoDestaque: {
-    borderRadius: 14,
-    padding: espaco.lg,
-    gap: 6,
-  },
-  rotuloDestaque: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  valorDestaque: {
-    color: '#FAF8F5',
-    fontSize: 36,
-    fontWeight: '700',
-  },
-  subtituloDestaque: {
-    color: '#FAF8F5',
-    fontSize: 14,
+    borderRadius: 18,
+    padding: 20,
   },
   grade: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: espaco.sm,
+    gap: 12,
   },
-  cartaoMetrica: {
+  celulaMetrica: {
     width: '48%',
-    borderRadius: 12,
-    padding: espaco.md,
-    gap: 4,
-    borderWidth: 1,
-  },
-  numero: {
-    fontSize: 26,
-    fontWeight: '700',
-  },
-  rotuloMetrica: {
-    ...tipografia.corpo,
-  },
-  cartaoInfo: {
-    borderRadius: 12,
-    padding: espaco.md,
-    gap: espaco.sm,
-    borderWidth: 1,
-  },
-  tituloSecao: {
-    ...tipografia.titulo,
-    fontSize: 16,
-  },
-  corpo: {
-    ...tipografia.corpo,
-    lineHeight: 22,
-  },
-  botaoTema: {
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingVertical: 11,
-    alignItems: 'center',
-  },
-  textoBotaoTema: {
-    fontWeight: '600',
-    fontSize: tipografia.corpo.fontSize,
-  },
-  botaoSair: {
-    borderRadius: 10,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  textoBotaoClaro: {
-    color: '#FAF8F5',
-    fontWeight: '700',
-    fontSize: tipografia.corpo.fontSize,
-  },
-  link: {
-    fontWeight: '600',
-    fontSize: tipografia.corpo.fontSize,
-  },
-  desabilitado: {
-    opacity: 0.45,
-  },
-  pressionado: {
-    opacity: 0.8,
   },
 });

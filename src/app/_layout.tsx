@@ -4,6 +4,7 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import * as Notifications from 'expo-notifications';
 import '../services/notifications';
 import { ThemeProvider, useTheme } from '../context/theme-context';
+import { GluestackUIProvider } from '../components/ui/gluestack-ui';
 import { useAuthStore } from '../store/use-auth-store';
 
 function NavegacaoRaiz() {
@@ -78,7 +79,9 @@ function NavegacaoRaiz() {
 export default function RootLayout() {
   return (
     <ThemeProvider>
-      <NavegacaoRaiz />
+      <GluestackUIProvider>
+        <NavegacaoRaiz />
+      </GluestackUIProvider>
     </ThemeProvider>
   );
 }

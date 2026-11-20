@@ -1,9 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
-import { rotuloEspecie, rotuloStatusPasseio } from '../../types/pet';
+import {
+  rotuloEspecie,
+  rotuloStatusPasseio,
+  type StatusPasseio,
+} from '../../types/pet';
 import { usePetStore } from '../../store/use-pet-store';
 import { agendarLembretePasseio } from '../../services/notifications';
 import {
@@ -14,7 +18,24 @@ import {
 import { WalkTimer, formatarDuracao } from '../../components/walk-timer';
 import { TelaRegistro } from '../../screens/tela-registro';
 import { useTheme } from '../../context/theme-context';
-import { espaco, tipografia } from '../../theme';
+import {
+  Badge,
+  BadgeText,
+  Button,
+  ButtonText,
+  Card,
+  Heading,
+  HStack,
+  Text,
+  VStack,
+  type BadgeAction,
+} from '../../components/ui/gluestack-ui';
+
+function acaoBadgeStatus(status: StatusPasseio): BadgeAction {
+  if (status === 'concluido') return 'success';
+  if (status === 'cancelado') return 'error';
+  return 'warning';
+}
 
 export default function TelaDetalhePet() {
   const router = useRouter();
@@ -27,7 +48,9 @@ export default function TelaDetalhePet() {
   const removePet = usePetStore((state) => state.removePet);
 
   const [registrandoPasseio, setRegistrandoPasseio] = useState(false);
-  const [feedbackNotificacao, setFeedbackNotificacao] = useState<string | null>(null);
+  const [feedbackNotificacao, setFeedbackNotificacao] = useState<string | null>(
+    null
+  );
   const [historico, setHistorico] = useState<PasseioLog[]>([]);
 
   const carregarHistorico = useCallback(async () => {
@@ -47,19 +70,17 @@ export default function TelaDetalhePet() {
   if (!pet) {
     return (
       <View style={[styles.centralizado, { backgroundColor: tema.fundo }]}>
-        <Text style={[styles.titulo, { color: tema.primaria }]}>
-          Pet não encontrado
-        </Text>
-        <Pressable
-          onPress={() => router.back()}
-          style={({ pressed }) => [
-            styles.botaoPrimario,
-            { backgroundColor: tema.primaria },
-            pressed && styles.pressionado,
-          ]}
-        >
-          <Text style={styles.textoBotaoClaro}>Voltar</Text>
-        </Pressable>
+        <Card variant="elevated" className="w-full">
+          <VStack space="md" className="items-center">
+            <Heading size="lg">Pet não encontrado</Heading>
+            <Text size="sm" muted className="text-center">
+              O registro solicitado não está disponível na lista atual.
+            </Text>
+            <Button action="primary" className="w-full" onPress={() => router.back()}>
+              <ButtonText>Voltar</ButtonText>
+            </Button>
+          </VStack>
+        </Card>
       </View>
     );
   }
@@ -155,70 +176,81 @@ export default function TelaDetalhePet() {
             { backgroundColor: tema.cartao, borderColor: tema.azulClaro },
           ]}
         >
-          <Text style={[styles.textoPlaceholder, { color: tema.textoFraco }]}>
-            Sem foto cadastrada
+          <Text size="md" muted>
+            Sem foto cadastrada (proporção 1:1)
           </Text>
         </View>
       )}
 
-      <View
-        style={[
-          styles.cartao,
-          { backgroundColor: tema.cartao, borderColor: tema.borda },
-        ]}
-      >
-        <Text style={[styles.titulo, { color: tema.primaria }]}>{pet.nome}</Text>
-        <Text style={[styles.corpo, { color: tema.texto }]}>
-          Espécie: {rotuloEspecie(pet.especie)} • Porte: {pet.porte}
-        </Text>
-        <Text style={[styles.corpo, { color: tema.texto }]}>
-          Idade: {pet.idadeMeses} meses
-        </Text>
-        <Text style={[styles.corpo, { color: tema.texto }]}>
-          Status do passeio: {rotuloStatusPasseio(pet.statusPasseio)}
-        </Text>
-        <Text style={[styles.corpo, { color: tema.texto }]}>
-          Última localização:{' '}
-          {pet.local
-            ? `Lat ${pet.local.latitude.toFixed(5)}, Lon ${pet.local.longitude.toFixed(5)} (±${Math.round(pet.local.precisaoMetros)}m)`
-            : 'Nenhum registro de GPS ainda'}
-        </Text>
-      </View>
+      <Card variant="elevated">
+        <VStack space="sm">
+          <HStack className="justify-between flex-wrap">
+            <Heading size="xl">{pet.nome}</Heading>
+            <Badge action={acaoBadgeStatus(pet.statusPasseio)}>
+              <BadgeText>{rotuloStatusPasseio(pet.statusPasseio)}</BadgeText>
+            </Badge>
+          </HStack>
+
+          <HStack space="xs" className="flex-wrap">
+            <Badge action="info">
+              <BadgeText>{rotuloEspecie(pet.especie)}</BadgeText>
+            </Badge>
+            <Badge action="muted">
+              <BadgeText className="capitalize">Porte {pet.porte}</BadgeText>
+            </Badge>
+            <Badge action="muted">
+              <BadgeText>{pet.idadeMeses} meses</BadgeText>
+            </Badge>
+          </HStack>
+
+          <Text size="sm" muted>
+            Última localização:{' '}
+            {pet.local
+              ? `Lat ${pet.local.latitude.toFixed(5)}, Lon ${pet.local.longitude.toFixed(5)} (±${Math.round(pet.local.precisaoMetros)}m)`
+              : 'Nenhum registro de GPS ainda'}
+          </Text>
+        </VStack>
+      </Card>
 
       <WalkTimer onSalvarSessao={handleSalvarCronometro} />
 
-      <View
-        style={[
-          styles.cartao,
-          { backgroundColor: tema.cartao, borderColor: tema.borda },
-        ]}
-      >
-        <Text style={[styles.subtitulo, { color: tema.primaria }]}>
-          Histórico de Passeios (SQLite)
-        </Text>
-        {historico.length === 0 ? (
-          <Text style={[styles.legenda, { color: tema.textoFraco }]}>
-            Nenhuma sessão cronometrada salva para {pet.nome} ainda.
-          </Text>
-        ) : (
-          historico.map((item) => (
-            <View
-              key={String(item.id)}
-              style={[
-                styles.itemHistorico,
-                { backgroundColor: tema.superficie, borderColor: tema.borda },
-              ]}
-            >
-              <Text style={[styles.tempoHistorico, { color: tema.azulTexto }]}>
-                Duração: {formatarDuracao(item.seconds)}
-              </Text>
-              <Text style={[styles.legenda, { color: tema.textoFraco }]}>
-                {new Date(item.createdAt).toLocaleString('pt-BR')}
-              </Text>
-            </View>
-          ))
-        )}
-      </View>
+      <Card variant="elevated">
+        <VStack space="sm">
+          <HStack className="justify-between">
+            <Heading size="md">Histórico de Passeios</Heading>
+            <Badge action="info">
+              <BadgeText>SQLite ({historico.length})</BadgeText>
+            </Badge>
+          </HStack>
+
+          {historico.length === 0 ? (
+            <Text size="sm" muted>
+              Nenhuma sessão cronometrada salva para {pet.nome} ainda.
+            </Text>
+          ) : (
+            historico.map((item) => (
+              <View
+                key={String(item.id)}
+                style={[
+                  styles.itemHistorico,
+                  { backgroundColor: tema.superficie, borderColor: tema.borda },
+                ]}
+              >
+                <Text
+                  size="sm"
+                  className="font-bold"
+                  style={{ color: tema.azulTexto }}
+                >
+                  Duração: {formatarDuracao(item.seconds)}
+                </Text>
+                <Text size="xs" muted>
+                  {new Date(item.createdAt).toLocaleString('pt-BR')}
+                </Text>
+              </View>
+            ))
+          )}
+        </VStack>
+      </Card>
 
       {feedbackNotificacao ? (
         <View
@@ -227,74 +259,40 @@ export default function TelaDetalhePet() {
             { backgroundColor: tema.azulSuave, borderColor: tema.azulClaro },
           ]}
         >
-          <Text style={[styles.textoAviso, { color: tema.azulTexto }]}>
+          <Text size="sm" style={{ color: tema.azulTexto }}>
             {feedbackNotificacao}
           </Text>
         </View>
       ) : null}
 
-      <View style={styles.acoes}>
-        <Pressable
+      <VStack space="sm">
+        <Button
+          action="secondary"
           onPress={() =>
             router.push({ pathname: '/foto-do-pet', params: { petId: pet.id } })
           }
-          style={({ pressed }) => [
-            styles.botaoAzul,
-            { backgroundColor: tema.azulSuave, borderColor: tema.azulClaro },
-            pressed && styles.pressionado,
-          ]}
         >
-          <Text style={[styles.textoBotaoAzul, { color: tema.azulTexto }]}>
-            Alterar foto do pet (1:1)
-          </Text>
-        </Pressable>
+          <ButtonText>Alterar foto do pet (1:1)</ButtonText>
+        </Button>
 
-        <Pressable
-          onPress={handleAlternarStatus}
-          style={({ pressed }) => [
-            styles.botaoSecundario,
-            { backgroundColor: tema.cartao, borderColor: tema.borda },
-            pressed && styles.pressionado,
-          ]}
-        >
-          <Text style={[styles.textoBotaoEscuro, { color: tema.texto }]}>
+        <Button variant="outline" onPress={handleAlternarStatus}>
+          <ButtonText>
             Alternar status ({pet.statusPasseio === 'concluido' ? 'marcar pendente' : 'marcar concluído'})
-          </Text>
-        </Pressable>
+          </ButtonText>
+        </Button>
 
-        <Pressable
-          onPress={() => setRegistrandoPasseio(true)}
-          style={({ pressed }) => [
-            styles.botaoPrimario,
-            { backgroundColor: tema.primaria },
-            pressed && styles.pressionado,
-          ]}
-        >
-          <Text style={styles.textoBotaoClaro}>Registrar passeio com GPS/Câmera</Text>
-        </Pressable>
+        <Button action="primary" onPress={() => setRegistrandoPasseio(true)}>
+          <ButtonText>Registrar passeio com GPS/Câmera</ButtonText>
+        </Button>
 
-        <Pressable
-          onPress={handleAgendarLembrete}
-          style={({ pressed }) => [
-            styles.botaoAlerta,
-            { backgroundColor: tema.alerta },
-            pressed && styles.pressionado,
-          ]}
-        >
-          <Text style={styles.textoBotaoClaro}>Agendar lembrete de passeio (5s)</Text>
-        </Pressable>
+        <Button action="warning" onPress={handleAgendarLembrete}>
+          <ButtonText>Agendar lembrete de passeio (5s)</ButtonText>
+        </Button>
 
-        <Pressable
-          onPress={handleExcluir}
-          style={({ pressed }) => [
-            styles.botaoPerigo,
-            { backgroundColor: tema.erro },
-            pressed && styles.pressionado,
-          ]}
-        >
-          <Text style={styles.textoBotaoClaro}>Excluir pet</Text>
-        </Pressable>
-      </View>
+        <Button action="negative" onPress={handleExcluir}>
+          <ButtonText>Excluir pet</ButtonText>
+        </Button>
+      </VStack>
     </ScrollView>
   );
 }
@@ -304,117 +302,37 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   conteudo: {
-    padding: espaco.md,
-    gap: espaco.md,
+    padding: 16,
+    gap: 16,
+    paddingBottom: 32,
   },
   centralizado: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: espaco.md,
-    padding: espaco.md,
+    padding: 20,
   },
   foto: {
     width: '100%',
     aspectRatio: 1,
-    borderRadius: 14,
+    borderRadius: 16,
   },
   fotoPlaceholder: {
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  textoPlaceholder: {
-    ...tipografia.corpo,
-  },
-  cartao: {
-    borderRadius: 12,
-    padding: espaco.md,
-    gap: espaco.sm,
-    borderWidth: 1,
-  },
-  titulo: {
-    ...tipografia.titulo,
-  },
-  subtitulo: {
-    ...tipografia.subtitulo,
-  },
-  corpo: {
-    ...tipografia.corpo,
-    textTransform: 'capitalize',
-  },
-  legenda: {
-    ...tipografia.legenda,
-  },
   itemHistorico: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: espaco.sm,
-    borderRadius: 8,
+    padding: 12,
+    borderRadius: 10,
     borderWidth: 1,
-  },
-  tempoHistorico: {
-    fontWeight: '700',
-    fontSize: 14,
   },
   caixaAviso: {
     borderWidth: 1,
-    borderRadius: 10,
-    padding: espaco.sm,
-  },
-  textoAviso: {
-    ...tipografia.corpo,
-  },
-  acoes: {
-    gap: espaco.sm,
-  },
-  botaoPrimario: {
-    paddingVertical: 14,
-    paddingHorizontal: espaco.md,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  botaoAzul: {
-    borderWidth: 1,
-    paddingVertical: 14,
-    paddingHorizontal: espaco.md,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  botaoSecundario: {
-    borderWidth: 1,
-    paddingVertical: 14,
-    paddingHorizontal: espaco.md,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  botaoAlerta: {
-    paddingVertical: 14,
-    paddingHorizontal: espaco.md,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  botaoPerigo: {
-    paddingVertical: 14,
-    paddingHorizontal: espaco.md,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  textoBotaoClaro: {
-    color: '#FAF8F5',
-    fontWeight: '600',
-    fontSize: tipografia.corpo.fontSize,
-  },
-  textoBotaoAzul: {
-    fontWeight: '600',
-    fontSize: tipografia.corpo.fontSize,
-  },
-  textoBotaoEscuro: {
-    fontWeight: '600',
-    fontSize: tipografia.corpo.fontSize,
-  },
-  pressionado: {
-    opacity: 0.8,
+    borderRadius: 12,
+    padding: 12,
   },
 });

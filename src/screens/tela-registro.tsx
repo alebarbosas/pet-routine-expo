@@ -1,216 +1,220 @@
-// ============================================================
-// Prática 3 — Tela de registro de passeio
-// Disciplina: Desenvolvimento Mobile (2026.2.DM) — CESAR School
-//
-// CONTRATO DE TRÊS TEMPOS:
-//   1. PEDIR   → pedirPermissaoCamera() / Location.requestForegroundPermissionsAsync()
-//   2. LER     → cameraRef.takePictureAsync() / Location.getCurrentPositionAsync()
-//   3. PARAR   → fechar câmera / (não se aplica para getCurrentPositionAsync)
-//
-// Restrições:
-//   • Sem useEffect, useRef — apenas useState + hooks das bibliotecas
-//   • Sem navegação — a tela aparece por condicional em App.tsx
-//   • Sem mapa — coordenada é texto
-//   • Sem salvar na galeria e sem escolher do rolo
-//   • Sem rede — foto vive no cache
-// ============================================================
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import * as Location from 'expo-location';
-import { CameraView, useCameraPermissions } from 'expo-camera';
+import * as ImagePicker from 'expo-image-picker';
 
 import type { Pet } from '../types/pet';
-import { cores, espaco, tipografia } from '../theme';
+import { useTheme } from '../context/theme-context';
+import {
+  Badge,
+  BadgeText,
+  Button,
+  ButtonSpinner,
+  ButtonText,
+  Card,
+  Heading,
+  HStack,
+  Text,
+  VStack,
+} from '../components/ui/gluestack-ui';
 
-type TelaRegistroProps = {
+export type TelaRegistroProps = {
   pet: Pet;
-  onSalvar: (local?: Pet['local'], fotoUri?: string) => void;
+  onSalvar: (local?: Pet['local'], fotoUri?: string) => void | Promise<void>;
   onCancelar: () => void;
 };
 
-export function TelaRegistro({ pet, onSalvar, onCancelar }: TelaRegistroProps) {
-  const [local, setLocal] = useState<Pet['local'] | null>(null);
-  const [fotoUri, setFotoUri] = useState<string | null>(null);
-  const [erro, setErro] = useState('');
-  const [mostrarCamera, setMostrarCamera] = useState(false);
+export function TelaRegistro({
+  pet,
+  onSalvar,
+  onCancelar,
+}: TelaRegistroProps) {
+  const { tema } = useTheme();
+  const [local, setLocal] = useState<Pet['local']>(pet.local);
+  const [fotoUri, setFotoUri] = useState<string | undefined>(pet.fotoUri);
+  const [buscandoGps, setBuscandoGps] = useState(false);
+  const [salvando, setSalvando] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
 
-  // TODO P3.16: hook de permissão de câmera (das libs, não do React):
-  const [permissaoCamera, pedirPermissaoCamera] = useCameraPermissions();
-
-  // TODO P3.17: ref da câmera via useState (useRef não está disponível nesta prática).
-  const [cameraRef, setCameraRef] = useState<CameraView | null>(null);
-
-  // ----- Localização -----
-  // CONTRATO: 1. PEDIR → Location.requestForegroundPermissionsAsync()
-  //           2. LER   → Location.getCurrentPositionAsync()
-  //           3. PARAR → não se aplica (leitura única, sem subscription)
-  async function obterLocalizacao() {
+  async function capturarLocalizacao() {
+    setErro(null);
+    setBuscandoGps(true);
     try {
-      const servico = await Location.hasServicesEnabledAsync();
-      if (!servico) {
-        setErro('GPS desligado. Ative a localização nas configurações do aparelho.');
+      const perm = await Location.requestForegroundPermissionsAsync();
+      if (!perm.granted) {
+        setErro(
+          'Permissão de localização negada. Libere o GPS nas configurações.'
+        );
         return;
       }
 
-      const { status, canAskAgain } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        if (canAskAgain) {
-          setErro('Permissão de localização negada. Toque em "Obter localização" para tentar de novo.');
-        } else {
-          setErro('Permissão bloqueada. Vá em Configurações > Permissões para habilitar o GPS.');
-        }
-        return;
-      }
-
-      const posicao = await Location.getCurrentPositionAsync({
-        // Utiliza High para balancear bateria e precisão. Highest / BestForNavigation gasta muita bateria.
-        accuracy: Location.Accuracy.High,
+      const pos = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
       });
 
       setLocal({
-        latitude: posicao.coords.latitude,
-        longitude: posicao.coords.longitude,
-        precisaoMetros: posicao.coords.accuracy ?? 0,
+        latitude: pos.coords.latitude,
+        longitude: pos.coords.longitude,
+        precisaoMetros: pos.coords.accuracy ?? 15,
       });
-      setErro('');
-    } catch (e) {
-      setErro('Sensor/hardware de localização indisponível.');
+    } catch {
+      setErro('Não foi possível obter a localização GPS atual.');
+    } finally {
+      setBuscandoGps(false);
     }
   }
 
-  // ----- Câmera -----
-  // CONTRATO: 1. PEDIR → pedirPermissaoCamera()
-  //           2. LER   → cameraRef.takePictureAsync()
-  //           3. PARAR → setMostrarCamera(false) (fecha a view)
-  async function abrirCamera() {
+  async function capturarFoto() {
+    setErro(null);
+    const perm = await ImagePicker.requestCameraPermissionsAsync();
+    if (!perm.granted) {
+      setErro(
+        'Permissão da câmera negada. Autorize a câmera para fotografar o passeio.'
+      );
+      return;
+    }
+
+    const res = await ImagePicker.launchCameraAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (!res.canceled) {
+      setFotoUri(res.assets[0].uri);
+    }
+  }
+
+  async function confirmarRegistro() {
+    if (salvando) return;
+    setSalvando(true);
     try {
-      const { status } = await pedirPermissaoCamera();
-      if (status !== 'granted') {
-        setErro('Permissão de câmera negada. Vá em Configurações para habilitar.');
-        return;
-      }
-      setMostrarCamera(true);
-      setErro('');
-    } catch (e) {
-      setErro('Hardware de câmera indisponível.');
+      await onSalvar(local, fotoUri);
+    } finally {
+      setSalvando(false);
     }
   }
 
-  async function tirarFoto() {
-    if (!cameraRef) return;
-    try {
-      const foto = await cameraRef.takePictureAsync({ base64: false });
-      if (foto) {
-        setFotoUri(foto.uri);
-        setMostrarCamera(false);
-      }
-    } catch (e) {
-      setErro('Erro ao capturar a foto.');
-    }
-  }
-
-  function salvar() {
-    // TODO P3.23: chame onSalvar com os dados capturados.
-    // TODO P3.24: o app funciona MESMO quando o usuário nega tudo.
-    onSalvar(local ?? undefined, fotoUri ?? undefined);
-  }
-
-  // ----- Renderização: câmera ativa -----
-  if (mostrarCamera) {
-    return (
-      <View style={styles.tela}>
-        <CameraView
-          ref={setCameraRef}
-          style={styles.camera}
-          facing="back"
-        />
-        <View style={styles.acoesCamera}>
-            <Pressable onPress={tirarFoto} style={[styles.botaoAcao, { flex: 1 }]}>
-                <Text style={styles.textoBotao}>Tirar foto</Text>
-            </Pressable>
-            <Pressable onPress={() => setMostrarCamera(false)} style={styles.botaoCancelar}>
-                <Text style={styles.textoBotao}>Cancelar</Text>
-            </Pressable>
-        </View>
-      </View>
-    );
-  }
-
-  // ----- Renderização: tela principal de registro -----
   return (
-    <View style={styles.tela}>
-      <Text style={tipografia.titulo}>Registrar passeio de {pet.nome}</Text>
+    <SafeAreaView style={[styles.safe, { backgroundColor: tema.fundo }]}>
+      <ScrollView contentContainerStyle={styles.conteudo}>
+        <Card variant="elevated">
+          <VStack space="md">
+            <HStack className="justify-between">
+              <Heading size="lg">Registrar Passeio</Heading>
+              <Badge action="info">
+                <BadgeText>{pet.nome}</BadgeText>
+              </Badge>
+            </HStack>
 
-      {/* TODO P3.21: mostre o erro com mensagem DISTINTA por cenário. */}
-      {erro !== '' && <Text style={styles.erro}>{erro}</Text>}
+            <Text size="sm" muted>
+              Capture a posição GPS e uma foto do passeio para marcar como
+              concluído.
+            </Text>
 
-      {/* Localização */}
-      {local ? (
-        <View style={styles.secao}>
-          <Text style={tipografia.corpo}>
-            Local: {local.latitude.toFixed(3)}, {local.longitude.toFixed(3)} (±{Math.round(local.precisaoMetros)}m)
-          </Text>
-        </View>
-      ) : (
-        <Pressable onPress={obterLocalizacao} style={styles.botaoAcao}>
-          <Text style={styles.textoBotao}>Obter localização</Text>
-        </Pressable>
-      )}
+            {erro ? (
+              <View
+                style={[
+                  styles.caixaErro,
+                  {
+                    backgroundColor: tema.primariaSuave,
+                    borderColor: tema.primaria,
+                  },
+                ]}
+              >
+                <Text size="sm" style={{ color: tema.erro }}>
+                  {erro}
+                </Text>
+              </View>
+            ) : null}
 
-      {/* Foto */}
-      {fotoUri ? (
-        <Image
-          source={{ uri: fotoUri }}
-          style={styles.previa}
-          // contentFit="cover" preenche a área mantendo a proporção, enquanto "contain" deixaria espaço vazio
-          contentFit="cover"
-        />
-      ) : (
-        <Pressable onPress={abrirCamera} style={styles.botaoAcao}>
-          <Text style={styles.textoBotao}>Tirar foto</Text>
-        </Pressable>
-      )}
+            <Card variant="filled">
+              <VStack space="xs">
+                <Text size="sm" className="font-semibold">
+                  Coordenadas GPS
+                </Text>
+                <Text size="sm" muted>
+                  {local
+                    ? `Lat ${local.latitude.toFixed(5)}, Lon ${local.longitude.toFixed(5)} (±${Math.round(local.precisaoMetros)}m)`
+                    : 'Nenhuma coordenada capturada ainda'}
+                </Text>
+              </VStack>
+            </Card>
 
-      {/* Ações */}
-      <View style={styles.acoes}>
-        <Pressable onPress={salvar} style={[styles.botaoAcao, { flex: 1 }]}>
-          <Text style={styles.textoBotao}>Salvar</Text>
-        </Pressable>
-        <Pressable onPress={onCancelar} style={styles.botaoCancelar}>
-          <Text style={styles.textoBotao}>Cancelar</Text>
-        </Pressable>
-      </View>
-    </View>
+            <Button
+              action="secondary"
+              isDisabled={buscandoGps}
+              onPress={capturarLocalizacao}
+            >
+              {buscandoGps ? <ButtonSpinner /> : null}
+              <ButtonText>
+                {buscandoGps
+                  ? 'Obtendo localização...'
+                  : 'Capturar Localização GPS'}
+              </ButtonText>
+            </Button>
+
+            {fotoUri ? (
+              <Image
+                source={{ uri: fotoUri }}
+                style={styles.previa}
+                contentFit="cover"
+              />
+            ) : null}
+
+            <Button variant="outline" onPress={capturarFoto}>
+              <ButtonText>
+                {fotoUri ? 'Tirar Nova Foto (1:1)' : 'Fotografar Passeio (1:1)'}
+              </ButtonText>
+            </Button>
+
+            <HStack space="sm">
+              <Button
+                variant="outline"
+                className="flex-1"
+                isDisabled={salvando}
+                onPress={onCancelar}
+              >
+                <ButtonText>Cancelar</ButtonText>
+              </Button>
+
+              <Button
+                action="positive"
+                className="flex-1"
+                isDisabled={salvando}
+                onPress={confirmarRegistro}
+              >
+                {salvando ? <ButtonSpinner /> : null}
+                <ButtonText>
+                  {salvando ? 'Salvando...' : 'Confirmar Passeio'}
+                </ButtonText>
+              </Button>
+            </HStack>
+          </VStack>
+        </Card>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  tela: {
-    flex: 1,
-    padding: espaco.md,
-    paddingTop: 48,
-    backgroundColor: cores.fundo,
-    gap: espaco.md,
-  },
-  erro: { ...tipografia.corpo, color: cores.erro },
-  secao: { gap: espaco.sm },
-  camera: { flex: 1, borderRadius: espaco.sm },
-  acoesCamera: { flexDirection: 'row', gap: espaco.md, paddingBottom: espaco.md },
-  previa: { width: '100%', height: 200, borderRadius: espaco.sm },
-  botaoAcao: {
-    backgroundColor: cores.primaria,
-    padding: espaco.md,
-    borderRadius: espaco.sm,
-    alignItems: 'center',
-  },
-  botaoCancelar: {
-    backgroundColor: cores.textoFraco,
-    padding: espaco.md,
-    borderRadius: espaco.sm,
-    alignItems: 'center',
+  safe: {
     flex: 1,
   },
-  textoBotao: { color: '#FFFFFF', fontWeight: 'bold' },
-  acoes: { flexDirection: 'row', gap: espaco.md },
+  conteudo: {
+    padding: 16,
+  },
+  caixaErro: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+  },
+  previa: {
+    width: '100%',
+    aspectRatio: 1,
+    borderRadius: 14,
+  },
 });

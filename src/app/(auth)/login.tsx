@@ -1,22 +1,34 @@
 import { useState } from 'react';
 import {
-  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   Pressable,
   ScrollView,
   StyleSheet,
-  Text,
-  TextInput,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Feather } from '@expo/vector-icons';
 import { Link } from 'expo-router';
 import { loginUser } from '../../services/auth-service';
 import { useTheme } from '../../context/theme-context';
-import { espaco, tipografia } from '../../theme';
+import {
+  Badge,
+  BadgeText,
+  Button,
+  ButtonSpinner,
+  ButtonText,
+  Card,
+  Heading,
+  HStack,
+  Input,
+  InputField,
+  Text,
+  VStack,
+} from '../../components/ui/gluestack-ui';
 
 export default function TelaLogin() {
-  const { tema } = useTheme();
+  const { tema, isDark, toggleTheme } = useTheme();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -46,203 +58,179 @@ export default function TelaLogin() {
   }
 
   return (
-    <KeyboardAvoidingView
-      style={[styles.tela, { backgroundColor: tema.fundo }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-      <ScrollView
-        contentContainerStyle={styles.conteudo}
-        keyboardShouldPersistTaps="handled"
+    <SafeAreaView style={[styles.safe, { backgroundColor: tema.fundo }]}>
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <View style={[styles.cabecalho, { backgroundColor: tema.primaria }]}>
-          <Text style={styles.tituloMarca}>Pet Routine</Text>
-          <Text style={[styles.subtituloMarca, { color: tema.azulClaro }]}>
-            Entre na sua conta para gerenciar a rotina dos seus pets
-          </Text>
-        </View>
-
-        <View
-          style={[
-            styles.cartao,
-            { backgroundColor: tema.cartao, borderColor: tema.borda },
-          ]}
+        <ScrollView
+          contentContainerStyle={styles.conteudo}
+          keyboardShouldPersistTaps="handled"
         >
-          <Text style={[styles.tituloForm, { color: tema.primaria }]}>
-            Acessar Conta
-          </Text>
-
-          {error ? (
-            <View
+          <HStack className="justify-between">
+            <Badge action="info">
+              <BadgeText>PET ROUTINE • v1.0</BadgeText>
+            </Badge>
+            <Pressable
+              onPress={toggleTheme}
+              accessibilityRole="button"
+              accessibilityLabel="Alternar tema"
               style={[
-                styles.caixaErro,
-                {
-                  backgroundColor: tema.primariaSuave,
-                  borderColor: tema.primaria,
-                },
+                styles.botaoTema,
+                { backgroundColor: tema.cartao, borderColor: tema.borda },
               ]}
             >
-              <Text style={[styles.textoErro, { color: tema.erro }]}>
-                {error}
+              <Feather
+                name={isDark ? 'sun' : 'moon'}
+                size={16}
+                color={tema.primaria}
+              />
+              <Text size="xs" className="font-semibold">
+                {isDark ? 'Modo Claro' : 'Modo Escuro'}
               </Text>
-            </View>
-          ) : null}
+            </Pressable>
+          </HStack>
 
-          <View style={styles.campo}>
-            <Text style={[styles.rotulo, { color: tema.texto }]}>E-mail</Text>
-            <TextInput
-              value={email}
-              onChangeText={setEmail}
-              placeholder="tutor@email.com"
-              placeholderTextColor={tema.textoFraco}
-              autoCapitalize="none"
-              keyboardType="email-address"
-              editable={!isLoading}
-              style={[
-                styles.input,
-                {
-                  borderColor: tema.borda,
-                  backgroundColor: tema.fundo,
-                  color: tema.texto,
-                },
-              ]}
-            />
+          <View style={[styles.hero, { backgroundColor: tema.primaria }]}>
+            <VStack space="xs">
+              <Heading size="2xl" style={{ color: '#FAF8F5' }}>
+                Pet Routine
+              </Heading>
+              <Text size="sm" style={{ color: tema.azulClaro, fontWeight: '600' }}>
+                Cuidado diário, passeios com GPS e histórico completo do seu pet.
+              </Text>
+            </VStack>
           </View>
 
-          <View style={styles.campo}>
-            <Text style={[styles.rotulo, { color: tema.texto }]}>Senha</Text>
-            <TextInput
-              value={password}
-              onChangeText={setPassword}
-              placeholder="Sua senha"
-              placeholderTextColor={tema.textoFraco}
-              secureTextEntry
-              editable={!isLoading}
-              style={[
-                styles.input,
-                {
-                  borderColor: tema.borda,
-                  backgroundColor: tema.fundo,
-                  color: tema.texto,
-                },
-              ]}
-            />
-          </View>
+          <Card variant="elevated">
+            <VStack space="md">
+              <VStack space="xs">
+                <Heading size="lg">Entrar na conta</Heading>
+                <Text size="sm" muted>
+                  Use o e-mail e senha cadastrados para sincronizar sua rotina.
+                </Text>
+              </VStack>
 
-          <Pressable
-            onPress={handleLogin}
-            disabled={camposInvalidos || isLoading}
-            style={({ pressed }) => [
-              styles.botaoEntrar,
-              { backgroundColor: tema.primaria },
-              (camposInvalidos || isLoading) && styles.desabilitado,
-              pressed && styles.pressionado,
-            ]}
-          >
-            {isLoading ? (
-              <ActivityIndicator color="#FAF8F5" />
-            ) : (
-              <Text style={styles.textoBotaoClaro}>Entrar</Text>
-            )}
-          </Pressable>
+              {error ? (
+                <View
+                  style={[
+                    styles.caixaErro,
+                    {
+                      backgroundColor: tema.primariaSuave,
+                      borderColor: tema.primaria,
+                    },
+                  ]}
+                >
+                  <Text
+                    size="sm"
+                    className="font-semibold"
+                    style={{ color: tema.erro }}
+                  >
+                    {error}
+                  </Text>
+                </View>
+              ) : null}
 
-          <Link
-            href="/(auth)/signup"
-            style={[
-              styles.linkCadastro,
-              {
-                backgroundColor: tema.azulSuave,
-                color: tema.azulTexto,
-                borderColor: tema.azulClaro,
-              },
-            ]}
-          >
-            Não tem conta? Criar cadastro
-          </Link>
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+              <VStack space="xs">
+                <Text size="sm" className="font-semibold">
+                  E-mail
+                </Text>
+                <Input isDisabled={isLoading}>
+                  <InputField
+                    value={email}
+                    onChangeText={setEmail}
+                    placeholder="tutor@email.com"
+                    autoCapitalize="none"
+                    keyboardType="email-address"
+                    editable={!isLoading}
+                  />
+                </Input>
+              </VStack>
+
+              <VStack space="xs">
+                <Text size="sm" className="font-semibold">
+                  Senha
+                </Text>
+                <Input isDisabled={isLoading}>
+                  <InputField
+                    value={password}
+                    onChangeText={setPassword}
+                    placeholder="Digite sua senha"
+                    secureTextEntry
+                    editable={!isLoading}
+                  />
+                </Input>
+              </VStack>
+
+              <Button
+                action="primary"
+                size="lg"
+                isDisabled={camposInvalidos || isLoading}
+                onPress={handleLogin}
+              >
+                {isLoading ? <ButtonSpinner /> : null}
+                <ButtonText>{isLoading ? 'Entrando...' : 'Entrar'}</ButtonText>
+              </Button>
+
+              <Link
+                href="/(auth)/signup"
+                style={[
+                  styles.linkSecundario,
+                  {
+                    backgroundColor: tema.azulSuave,
+                    color: tema.azulTexto,
+                    borderColor: tema.azulClaro,
+                  },
+                ]}
+              >
+                Não tem conta? Criar cadastro
+              </Link>
+            </VStack>
+          </Card>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  tela: {
+  safe: {
+    flex: 1,
+  },
+  flex: {
     flex: 1,
   },
   conteudo: {
     flexGrow: 1,
     justifyContent: 'center',
-    padding: espaco.lg,
-    gap: espaco.lg,
+    padding: 20,
+    gap: 16,
   },
-  cabecalho: {
-    borderRadius: 16,
-    padding: espaco.lg,
-    gap: espaco.xs,
-  },
-  tituloMarca: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#FAF8F5',
-  },
-  subtituloMarca: {
-    ...tipografia.corpo,
-    fontWeight: '600',
-  },
-  cartao: {
-    borderRadius: 14,
-    padding: espaco.lg,
-    gap: espaco.md,
+  botaoTema: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 999,
     borderWidth: 1,
   },
-  tituloForm: {
-    ...tipografia.titulo,
-    fontSize: 20,
+  hero: {
+    borderRadius: 18,
+    padding: 22,
   },
   caixaErro: {
     borderWidth: 1,
-    borderRadius: 10,
-    padding: espaco.sm,
-  },
-  textoErro: {
-    ...tipografia.corpo,
-    fontWeight: '600',
-  },
-  campo: {
-    gap: espaco.xs,
-  },
-  rotulo: {
-    ...tipografia.corpo,
-    fontWeight: '600',
-  },
-  input: {
-    borderWidth: 1,
-    borderRadius: 10,
+    borderRadius: 12,
     padding: 12,
-    fontSize: tipografia.corpo.fontSize,
   },
-  botaoEntrar: {
-    paddingVertical: 14,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  textoBotaoClaro: {
-    color: '#FAF8F5',
-    fontWeight: '700',
-    fontSize: tipografia.corpo.fontSize,
-  },
-  linkCadastro: {
+  linkSecundario: {
     borderWidth: 1,
-    borderRadius: 10,
+    borderRadius: 12,
     overflow: 'hidden',
-    paddingVertical: 12,
+    paddingVertical: 13,
     textAlign: 'center',
-    fontWeight: '600',
-    fontSize: tipografia.corpo.fontSize,
-  },
-  desabilitado: {
-    opacity: 0.45,
-  },
-  pressionado: {
-    opacity: 0.8,
+    fontWeight: '700',
+    fontSize: 15,
   },
 });

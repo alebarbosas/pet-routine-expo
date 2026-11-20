@@ -1,84 +1,62 @@
-# Pet Routine Expo
+# Pet Routine — Aplicativo Mobile (Expo + React Native)
 
-**Disciplina:** Desenvolvimento Mobile (2026.2.DM) — CESAR School
-**Branch:** `main`
+Aplicativo mobile para gerenciamento da rotina de pets, cadastro de animais, registro de passeios com GPS e câmera, cronômetro com histórico em SQLite, autenticação JWT e atualizações Over-The-Air (OTA).
 
-## Sobre o projeto
+---
 
-App de Gestão e Rotina Pet: um aplicativo para tutores de animais de estimação organizarem a rotina, passeios e histórico de saúde dos pets.
+## Reformulação de UI/UX
 
-Este projeto é usado nas atividades guiadas e aplicadas da disciplina ao longo do semestre. Cada aula adiciona uma camada nova por cima da anterior — o histórico de commits desta branch é, em si, um registro do progresso.
+Na Etapa 5, toda a interface do aplicativo foi refatorada utilizando **GlueStack UI + NativeWind** (`GluestackUIProvider`, `Card`, `VStack`, `HStack`, `Heading`, `Text`, `Badge`, `Button`, `Input`) integrada ao contexto global de Tema Claro/Escuro (`useTheme`), além de controles nativos do sistema operacional via **`@expo/ui`**.
 
-## Mini-Projeto — Segunda Unidade (AV2)
+### Decisões Visuais e de Usabilidade
 
-Esta branch contém o ponto de partida para o **Mini-Projeto da Unidade 2 (0,0 a 3,0 pontos)**, partindo das Práticas 1 a 3 concluídas:
+1. **Identidade Cromática e Contraste (Claro e Escuro):**
+   - **Modo Claro:** fundo Off-White quente (`#FAF8F5`), cartões brancos (`#FFFFFF`), destaque principal em Bordô (`#722F37`) e acentos informativos em Azul Claro (`#7DD3FC` / `#0369A1`).
+   - **Modo Escuro:** superfície vinho profunda (`#171012` / `#24191C`), texto principal em Off-White (`#FAF8F5`) e bordô luminoso (`#9E3E4A`), garantindo legibilidade em ambientes internos e externos.
 
-- **Enunciado completo e roteiro (Etapas 1 a 5):** [`docs/MINI-PROJETO.md`](./docs/MINI-PROJETO.md)
-- **Apresentação do Mini-Projeto (Slides HTML / PDF):** [`docs/apresentacao-mini-projeto/presentation.pdf`](./docs/apresentacao-mini-projeto/presentation.pdf)
-- **Backend REST fornecido pelo professor (Express + SQLite + JWT):** [`backend/README.md`](./backend/README.md)
-- **Template do Relatório de Uso de IA:** [`docs/relatorio-uso-ia.md`](./docs/relatorio-uso-ia.md)
+2. **Hierarquia Visual e Emblemas Semânticos (`Badge`):**
+   - Cada `CardPet` e a tela de detalhe exibem emblemas semânticos diferenciados por cor e contraste para o status do passeio:
+     - `concluido` → verde (`action="success"`)
+     - `pendente` → âmbar (`action="warning"`)
+     - `cancelado` → vermelho (`action="error"`)
+   - Espécie, porte e idade são agrupados em `HStack` com emblemas compactos (`action="info"` e `action="muted"`), facilitando a leitura rápida da lista.
 
-### Como rodar o Backend e o App
+3. **Consistência de Espaçamento e Área Segura (`SafeAreaView`):**
+   - Adoção sistemática de `VStack` e `HStack` com escala de `gap` padronizada (`xs: 4`, `sm: 8`, `md: 12`, `lg: 16`) e `paddingHorizontal: 16` em todas as telas, eliminando elementos colados nas bordas ou sobrepostos à barra de status.
 
-Em um terminal (Backend):
-```bash
-cd backend
-npm install
-npm run dev
-```
+4. **Feedbacks Visuais Completos:**
+   - Estados de carregamento com `ActivityIndicator` / `ButtonSpinner` durante login, cadastro, busca de pets e verificação OTA;
+   - Banners de erro destacados com opção de nova tentativa;
+   - Feedback tátil imediato (`pressed`) e bloqueio visual (`isDisabled`) durante requisições assíncronas.
 
-Em outro terminal (App Expo):
-```bash
-npm install
-npx expo start
-```
+5. **Controles Nativos (`@expo/ui`) e OTA (`expo-updates`):**
+   - Na aba **Estatísticas / Perfil**, o usuário conta com `<Switch>` e `<Picker variant="segmented">` nativos do iOS/Android encapsulados em `<Host matchContents>`, além do cartão de diagnóstico OTA com canal, `runtimeVersion` e verificação segura.
 
-## Estado inicial (histórico da Aula 1)
+### Comparativo Antes e Depois
 
-Scaffold inicial gerado com Expo (`create-expo-app`, template `blank-typescript`). Nenhuma tela ou modelagem de domínio foi implementada ainda — isso é propositalmente deixado para as próximas aulas. Veja os comentários `TODO` em `App.tsx`.
-
-## Como rodar
-
-```bash
-npm install
-npx expo start
-```
-
-Abra o app **Expo Go** no celular e escaneie o QR code (ou use um emulador). Requisito: **Node.js 22.11+**.
-
-## Práticas da Aula 1
-
-Os esqueletos das práticas de `PRATICA.md` já estão no repositório. Cada `TODO Px.y` no código corresponde a um item do enunciado — resolva na ordem.
-
-| Prática | Arquivo | Escopo |
+| Tela / Fluxo | Antes (Etapas 1–4) | Depois (Etapa 5 — GlueStack UI + `@expo/ui`) |
 |---|---|---|
-| 1 — Modelagem do domínio Pet | `src/types/pet.ts` | TypeScript puro |
-| 2 — Serviço mockado | `src/services/petService.ts` | TypeScript puro |
-| 2 — Estado de tela | `src/tela-pet.ts` | TypeScript puro |
-| 3 — Relatório de plataforma | `docs/pratica-03-relatorio-plataforma.md` | Texto |
-| 4 — Material desatualizado *(bônus)* | `docs/pratica-04-material-desatualizado.md` | Texto |
+| **Login & Cadastro** | Campos e botões simples sem cabeçalho de marca ou alternância de tema | Hero Bordô com `SafeAreaView`, `Card` elevado, `Input` acessível, `ButtonSpinner` e alternância de tema |
+| **Meus Pets & CardPet** | Lista com textos corridos e botões básicos | Resumo diário no topo, `CardPet` com avatar/monograma e `Badge` semântico por status, espécie e porte |
+| **Detalhe & Registro** | Cartões planos e botões empilhados sem hierarquia | Hierarquia clara com `Heading`, `Badge`, cronômetro com cleanup, histórico SQLite e registro GPS/Câmera |
+| **Estatísticas & Perfil** | Métricas básicas e links textuais | Grade de métricas, controles nativos `@expo/ui` (`Switch` + `Picker`), card OTA e logout com feedback |
 
-As Práticas 1 e 2 **não precisam de React Native nem do Expo** — são verificáveis só com o compilador:
+> **Capturas de tela (Antes e Depois):** adicione as imagens da execução do grupo na pasta `docs/screenshots/` (`antes-login.png`, `depois-login.png`, `antes-pets.png`, `depois-pets.png`, `depois-stats.png`).
+
+---
+
+## Como Executar e Gerar Builds (EAS)
 
 ```bash
-npm run typecheck        # equivale a `npx tsc --noEmit`
-npm run pratica:tela     # roda src/tela-pet.ts via tsx
-```
+# Instalar dependências e validar tipos
+npm install
+npm run typecheck
 
-> ⚠️ **O `typecheck` falha de propósito enquanto os TODOs não estiverem resolvidos.** Cada erro reportado aponta para um `TODO` que ainda falta preencher — é esse o critério de pronto. Alguns blocos marcados como *verificação* precisam **falhar** ao serem descomentados; não os apague.
+# Iniciar em desenvolvimento
+npx expo start
 
-## Próximos passos (exercícios)
+# Gerar APK Android (perfil preview)
+eas build --platform android --profile preview
 
-Os `TODO` deixados no código apontam para os exercícios de `exercises.md` de cada aula. Resolva-os na ordem em que aparecem e mantenha um commit por exercício (ou por bloco), para que o histórico da branch sirva de evidência de progresso.
-
-## Decisões de Projeto (Prática 2)
-
-- **Decisão de modelagem**: Optamos por utilizar a prop condicional `destacado?: boolean` no componente `Card` no lugar de criar componentes separados. Como o destaque do cartão reflete mudanças mínimas de interface (bordas diferentes), o uso de um booleano mantém o componente genérico e de simples utilização.
-- **Decisão de organização de estilo**: As cores, os espaçamentos principais e as propriedades fixas de tipografia viraram tokens no `theme.ts` visando assegurar a consistência visual geral da aplicação. Já atributos de disposição e estruturais (como `flexDirection`, alinhamentos e variações focadas da margem interna) ficaram como estilos locais nos componentes, já que refletem a necessidade espacial e estrutural local de cada exibição.
-
-## Decisões da Prática 3
-
-- **Por que `SectionList` e não `FlatList`**: Nossa lista deve agrupar os pets naturalmente por um critério (neste caso, o status de passeio, sendo 'Pendente', 'Concluído' ou 'Cancelado'). A API `SectionList` do React Native tem suporte nativo robusto de layout e virtualização (com `renderSectionHeader` entre outros hooks) para seções bidimensionais com alto rendimento, o que a `FlatList` pura exigiria contornos difíceis de manter e propensos a falhas arquiteturais.
-- **Onde os dados são agrupados e filtrados**: Em `/src/lib/agrupar.ts`, separadamente do JSX. Agrupamentos e filtragens são lógicas de negócio cruas (ou lógicas de dados) que independem do ciclo de vida da UI. Ao extraí-las do JSX, ganhamos extrema facilidade em testar funções puras, além de isolar o custo da CPU por re-processamentos na UI.
-- **A escolha de `Accuracy` na obtenção de GPS**: Selecionamos `Location.Accuracy.High` por conta do balanço adequado (oferece precisão satisfatória aos registros via Wi-Fi/Redes, não obrigando um GPS dedicado a 100% de esforço que esgotaria rápido a bateria do dispositivo como `Highest` ou `BestForNavigation` fariam), poupando carga durante a duração estendida dos passeios com pets.
-- **Limitações assumidas**: A tela de registro está implementada utilizando leituras momentâneas/únicas e chamadas manuais (`getCurrentPositionAsync`, leitura simples via Câmera). Apesar de termos subscrições pendentes ou possíveis, assumimos que elas não precisam de *cleanups* profundos no momento. Além disso, as fotos capturadas residem em cachê primário da aplicação (e não são salvas via `FileSystem` ou MediaLibrary diretamente na galeria) em respeito à redução de escopo da funcionalidade.
+# Gerar build para Simulador iOS (perfil preview)
+eas build --platform ios --profile preview
