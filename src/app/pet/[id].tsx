@@ -22,9 +22,9 @@ export default function TelaDetalhePet() {
   const { tema } = useTheme();
 
   const pet = usePetStore((state) => state.pets.find((p) => p.id === id));
-  const alternarStatus = usePetStore((state) => state.alternarStatus);
+  const togglePasseio = usePetStore((state) => state.togglePasseio);
   const registrarPasseio = usePetStore((state) => state.registrarPasseio);
-  const removerPet = usePetStore((state) => state.removerPet);
+  const removePet = usePetStore((state) => state.removePet);
 
   const [registrandoPasseio, setRegistrandoPasseio] = useState(false);
   const [feedbackNotificacao, setFeedbackNotificacao] = useState<string | null>(null);
@@ -68,9 +68,16 @@ export default function TelaDetalhePet() {
     return (
       <TelaRegistro
         pet={pet}
-        onSalvar={(local, fotoUri) => {
-          registrarPasseio(pet.id, local, fotoUri);
-          setRegistrandoPasseio(false);
+        onSalvar={async (local, fotoUri) => {
+          try {
+            await registrarPasseio(pet.id, local, fotoUri);
+            setRegistrandoPasseio(false);
+          } catch (err) {
+            setFeedbackNotificacao(
+              err instanceof Error ? err.message : 'Erro ao registrar passeio.'
+            );
+            setRegistrandoPasseio(false);
+          }
         }}
         onCancelar={() => setRegistrandoPasseio(false)}
       />
@@ -106,10 +113,27 @@ export default function TelaDetalhePet() {
     );
   }
 
-  function handleExcluir() {
+  async function handleAlternarStatus() {
     if (!pet) return;
-    removerPet(pet.id);
-    router.back();
+    try {
+      await togglePasseio(pet.id);
+    } catch (err) {
+      setFeedbackNotificacao(
+        err instanceof Error ? err.message : 'Erro ao alternar status.'
+      );
+    }
+  }
+
+  async function handleExcluir() {
+    if (!pet) return;
+    try {
+      await removePet(pet.id);
+      router.back();
+    } catch (err) {
+      setFeedbackNotificacao(
+        err instanceof Error ? err.message : 'Erro ao excluir pet.'
+      );
+    }
   }
 
   return (
@@ -226,7 +250,7 @@ export default function TelaDetalhePet() {
         </Pressable>
 
         <Pressable
-          onPress={() => alternarStatus(pet.id)}
+          onPress={handleAlternarStatus}
           style={({ pressed }) => [
             styles.botaoSecundario,
             { backgroundColor: tema.cartao, borderColor: tema.borda },

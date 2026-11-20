@@ -1,66 +1,140 @@
 ﻿import { create } from 'zustand';
-import { PETS } from '../data/pets';
-import type { NovoPet, Pet } from '../types/pet';
+import { apiFetch } from '../services/api';
+import type { AtualizacaoPet, NovoPet, Pet } from '../types/pet';
 
 type PetStore = {
   pets: Pet[];
-  adicionarPet: (novo: NovoPet) => void;
-  alternarStatus: (id: string) => void;
-  registrarPasseio: (id: string, local?: Pet['local'], fotoUri?: string) => void;
-  atualizarFoto: (id: string, fotoUri: string) => void;
-  removerPet: (id: string) => void;
-  recarregarMock: () => void;
+  isLoading: boolean;
+  error: string | null;
+  fetchPets: () => Promise<void>;
+  addPet: (novo: NovoPet) => Promise<void>;
+  togglePasseio: (id: string) => Promise<void>;
+  registrarPasseio: (
+    id: string,
+    local?: Pet['local'],
+    fotoUri?: string
+  ) => Promise<void>;
+  updatePet: (id: string, dados: AtualizacaoPet) => Promise<void>;
+  removePet: (id: string) => Promise<void>;
+  clearPets: () => void;
 };
 
 export const usePetStore = create<PetStore>((set) => ({
-  pets: PETS,
+  pets: [],
+  isLoading: false,
+  error: null,
 
-  adicionarPet: (novo) =>
-    set((state) => {
-      const criado: Pet = {
-        ...novo,
-        id: `pet-${Date.now()}`,
-        statusPasseio: 'pendente',
-        criadoEm: new Date(),
-      };
-      return { pets: [criado, ...state.pets] };
-    }),
+  fetchPets: async () => {
+    set({ isLoading: true, error: null });
+    try {
+      const lista = await apiFetch<Pet[]>('/pets');
+      set({ pets: lista, isLoading: false });
+    } catch (err) {
+      set({
+        error:
+          err instanceof Error ? err.message : 'Erro ao carregar lista de pets.',
+        isLoading: false,
+      });
+    }
+  },
 
-  alternarStatus: (id) =>
-    set((state) => ({
-      pets: state.pets.map((p) =>
-        p.id === id
-          ? {
-              ...p,
-              statusPasseio: p.statusPasseio === 'concluido' ? 'pendente' : 'concluido',
-            }
-          : p
-      ),
-    })),
+  addPet: async (novo) => {
+    set({ isLoading: true, error: null });
+    try {
+      const criado = await apiFetch<Pet>('/pets', {
+        method: 'POST',
+        body: JSON.stringify(novo),
+      });
+      set((state) => ({
+        pets: [criado, ...state.pets],
+        isLoading: false,
+      }));
+    } catch (err) {
+      set({
+        error: err instanceof Error ? err.message : 'Erro ao cadastrar pet.',
+        isLoading: false,
+      });
+      throw err;
+    }
+  },
 
-  registrarPasseio: (id, local, fotoUri) =>
-    set((state) => ({
-      pets: state.pets.map((p) =>
-        p.id === id
-          ? {
-              ...p,
-              statusPasseio: 'concluido',
-              local: local ?? p.local,
-              fotoUri: fotoUri ?? p.fotoUri,
-            }
-          : p
-      ),
-    })),
+  togglePasseio: async (id) => {
+    set({ error: null });
+    try {
+      const atualizado = await apiFetch<Pet>(`/pets/${id}/toggle`, {
+        method: 'PATCH',
+      });
+      set((state) => ({
+        pets: state.pets.map((p) => (p.id === id ? atualizado : p)),
+      }));
+    } catch (err) {
+      set({
+        error:
+          err instanceof Error
+            ? err.message
+            : 'Erro ao alternar status do passeio.',
+      });
+      throw err;
+    }
+  },
 
-  atualizarFoto: (id, fotoUri) =>
-    set((state) => ({
-      pets: state.pets.map((p) => (p.id === id ? { ...p, fotoUri } : p)),
-    })),
+  registrarPasseio: async (id, local, fotoUri) => {
+    set({ error: null });
+    try {
+      const atualizado = await apiFetch<Pet>(`/pets/${id}/passeio`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          statusPasseio: 'concluido',
+          local,
+          fotoUri,
+        }),
+      });
+      set((state) => ({
+        pets: state.pets.map((p) => (p.id === id ? atualizado : p)),
+      }));
+    } catch (err) {
+      set({
+        error:
+          err instanceof Error ? err.message : 'Erro ao registrar passeio.',
+      });
+      throw err;
+    }
+  },
 
-  removerPet: (id) =>
-    set((state) => ({
-      pets: state.pets.filter((p) => p.id !== id),
-    })),
+  updatePet: async (id, dados) => {
+    set({ error: null });
+    try {
+      const atualizado = await apiFetch<Pet>(`/pets/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(dados),
+      });
+      set((state) => ({
+        pets: state.pets.map((p) => (p.id === id ? atualizado : p)),
+      }));
+    } catch (err) {
+      set({
+        error: err instanceof Error ? err.message : 'Erro ao atualizar pet.',
+      });
+      throw err;
+    }
+  },
 
-  recarregarMock: () => set({ pets: PETS }),
+  removePet: async (id) => {
+    set({ error: null });
+    try {
+      await apiFetch<void>(`/pets/${id}`, {
+        method: 'DELETE',
+      });
+      set((state) => ({
+        pets: state.pets.filter((p) => p.id !== id),
+      }));
+    } catch (err) {
+      set({
+        error: err instanceof Error ? err.message : 'Erro ao remover pet.',
+      });
+      throw err;
+    }
+  },
+
+  clearPets: () => set({ pets: [], error: null }),
 }));

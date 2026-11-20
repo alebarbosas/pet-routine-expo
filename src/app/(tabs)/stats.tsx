@@ -1,18 +1,33 @@
-﻿import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+﻿import { useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Link } from 'expo-router';
 import { usePetStore } from '../../store/use-pet-store';
+import { useAuthStore } from '../../store/use-auth-store';
+import { logoutUser } from '../../services/auth-service';
 import { useTheme } from '../../context/theme-context';
 import { espaco, tipografia } from '../../theme';
 
 export default function TelaEstatisticas() {
   const pets = usePetStore((state) => state.pets);
+  const user = useAuthStore((state) => state.user);
   const { tema, modo, toggleTheme } = useTheme();
+  const [saindo, setSaindo] = useState(false);
 
   const total = pets.length;
   const concluidos = pets.filter((p) => p.statusPasseio === 'concluido').length;
   const pendentes = pets.filter((p) => p.statusPasseio === 'pendente').length;
   const cancelados = pets.filter((p) => p.statusPasseio === 'cancelado').length;
   const percentual = total > 0 ? Math.round((concluidos / total) * 100) : 0;
+
+  async function handleLogout() {
+    if (saindo) return;
+    setSaindo(true);
+    try {
+      await logoutUser();
+    } finally {
+      setSaindo(false);
+    }
+  }
 
   return (
     <ScrollView
@@ -83,11 +98,13 @@ export default function TelaEstatisticas() {
         ]}
       >
         <Text style={[styles.tituloSecao, { color: tema.primaria }]}>
-          Tema e Preferências
+          Perfil e Conta Autenticada
         </Text>
         <Text style={[styles.corpo, { color: tema.texto }]}>
-          Modo visual ativo: {modo === 'claro' ? 'Claro (Off-White)' : 'Escuro (Vinho)'}
+          Tutor: {user?.name ?? 'Usuário autenticado'}{'\n'}
+          E-mail: {user?.email ?? '—'}
         </Text>
+
         <Pressable
           onPress={toggleTheme}
           style={({ pressed }) => [
@@ -100,6 +117,22 @@ export default function TelaEstatisticas() {
             Alternar para modo {modo === 'claro' ? 'Escuro' : 'Claro'}
           </Text>
         </Pressable>
+
+        <Pressable
+          onPress={handleLogout}
+          disabled={saindo}
+          style={({ pressed }) => [
+            styles.botaoSair,
+            { backgroundColor: tema.erro },
+            saindo && styles.desabilitado,
+            pressed && styles.pressionado,
+          ]}
+        >
+          <Text style={styles.textoBotaoClaro}>
+            {saindo ? 'Saindo...' : 'Sair da Conta (Logout)'}
+          </Text>
+        </Pressable>
+
         <Link href="/settings" style={[styles.link, { color: tema.azulTexto }]}>
           Abrir Configurações (/settings)
         </Link>
@@ -168,21 +201,34 @@ const styles = StyleSheet.create({
   },
   corpo: {
     ...tipografia.corpo,
-    lineHeight: 20,
+    lineHeight: 22,
   },
   botaoTema: {
     borderWidth: 1,
     borderRadius: 10,
-    paddingVertical: 10,
+    paddingVertical: 11,
     alignItems: 'center',
   },
   textoBotaoTema: {
     fontWeight: '600',
     fontSize: tipografia.corpo.fontSize,
   },
+  botaoSair: {
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  textoBotaoClaro: {
+    color: '#FAF8F5',
+    fontWeight: '700',
+    fontSize: tipografia.corpo.fontSize,
+  },
   link: {
     fontWeight: '600',
     fontSize: tipografia.corpo.fontSize,
+  },
+  desabilitado: {
+    opacity: 0.45,
   },
   pressionado: {
     opacity: 0.8,

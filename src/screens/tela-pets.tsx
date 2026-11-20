@@ -1,4 +1,4 @@
-﻿import { useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 import {
   Pressable,
   SectionList,
@@ -25,13 +25,14 @@ export function TelaPets() {
   const router = useRouter();
   const { tema } = useTheme();
   const pets = usePetStore((state) => state.pets);
-  const adicionarPet = usePetStore((state) => state.adicionarPet);
-  const alternarStatus = usePetStore((state) => state.alternarStatus);
+  const isLoading = usePetStore((state) => state.isLoading);
+  const error = usePetStore((state) => state.error);
+  const fetchPets = usePetStore((state) => state.fetchPets);
+  const addPet = usePetStore((state) => state.addPet);
+  const togglePasseio = usePetStore((state) => state.togglePasseio);
   const registrarPasseio = usePetStore((state) => state.registrarPasseio);
-  const recarregarMock = usePetStore((state) => state.recarregarMock);
 
   const [busca, setBusca] = useState('');
-  const [atualizando, setAtualizando] = useState(false);
   const [petRegistrando, setPetRegistrando] = useState<string | null>(null);
 
   const [mostrarForm, setMostrarForm] = useState(false);
@@ -40,33 +41,37 @@ export function TelaPets() {
   const [novoPorte, setNovoPorte] = useState<PortePet>('medio');
   const [novaIdade, setNovaIdade] = useState('12');
 
-  async function recarregar() {
-    setAtualizando(true);
-    await new Promise((r) => setTimeout(r, 500));
-    recarregarMock();
-    setBusca('');
-    setAtualizando(false);
-  }
+  useEffect(() => {
+    fetchPets();
+  }, [fetchPets]);
 
-  function handleRegistro(local?: Pet['local'], fotoUri?: string) {
+  async function handleRegistro(local?: Pet['local'], fotoUri?: string) {
     if (!petRegistrando) return;
-    registrarPasseio(petRegistrando, local, fotoUri);
-    setPetRegistrando(null);
+    try {
+      await registrarPasseio(petRegistrando, local, fotoUri);
+      setPetRegistrando(null);
+    } catch {
+      // Erro já registrado na store
+    }
   }
 
-  function handleCriarPet() {
+  async function handleCriarPet() {
     const nomeLimpo = novoNome.trim();
     if (!nomeLimpo) return;
     const idadeNumero = Math.max(1, Number.parseInt(novaIdade, 10) || 1);
-    adicionarPet({
-      nome: nomeLimpo,
-      especie: novaEspecie,
-      porte: novoPorte,
-      idadeMeses: idadeNumero,
-    });
-    setNovoNome('');
-    setNovaIdade('12');
-    setMostrarForm(false);
+    try {
+      await addPet({
+        nome: nomeLimpo,
+        especie: novaEspecie,
+        porte: novoPorte,
+        idadeMeses: idadeNumero,
+      });
+      setNovoNome('');
+      setNovaIdade('12');
+      setMostrarForm(false);
+    } catch {
+      // Erro já exibido no banner da tela
+    }
   }
 
   const petAlvo = pets.find((p) => p.id === petRegistrando);
@@ -93,7 +98,9 @@ export function TelaPets() {
             onAbrirDetalhe={(id) =>
               router.push({ pathname: '/pet/[id]', params: { id } })
             }
-            onAlternar={alternarStatus}
+            onAlternar={(id) => {
+              togglePasseio(id).catch(() => {});
+            }}
             onRegistrar={(id) => setPetRegistrando(id)}
           />
         )}
@@ -111,8 +118,8 @@ export function TelaPets() {
           <ListaVazia termoBusca={busca} totalPets={pets.length} />
         }
         stickySectionHeadersEnabled={true}
-        refreshing={atualizando}
-        onRefresh={recarregar}
+        refreshing={isLoading}
+        onRefresh={fetchPets}
         ListHeaderComponent={
           <View style={styles.cabecalho}>
             <View style={styles.barraTopo}>
@@ -143,6 +150,27 @@ export function TelaPets() {
                 Foto 1:1
               </Link>
             </View>
+
+            {error ? (
+              <View
+                style={[
+                  styles.caixaErro,
+                  {
+                    backgroundColor: tema.primariaSuave,
+                    borderColor: tema.primaria,
+                  },
+                ]}
+              >
+                <Text style={[styles.textoErro, { color: tema.erro }]}>
+                  {error}
+                </Text>
+                <Pressable onPress={fetchPets}>
+                  <Text style={[styles.tentarNovamente, { color: tema.azulTexto }]}>
+                    Tentar novamente
+                  </Text>
+                </Pressable>
+              </View>
+            ) : null}
 
             {mostrarForm ? (
               <View
@@ -250,15 +278,18 @@ export function TelaPets() {
 
                 <Pressable
                   onPress={handleCriarPet}
-                  disabled={novoNome.trim() === ''}
+                  disabled={novoNome.trim() === '' || isLoading}
                   style={({ pressed }) => [
                     styles.botaoSalvar,
                     { backgroundColor: tema.primaria },
-                    novoNome.trim() === '' && styles.botaoDesabilitado,
+                    (novoNome.trim() === '' || isLoading) &&
+                      styles.botaoDesabilitado,
                     pressed && styles.pressionado,
                   ]}
                 >
-                  <Text style={styles.textoBotaoNovo}>Salvar Pet</Text>
+                  <Text style={styles.textoBotaoNovo}>
+                    {isLoading ? 'Salvando...' : 'Salvar Pet'}
+                  </Text>
                 </Pressable>
               </View>
             ) : null}
@@ -326,6 +357,20 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     fontWeight: '600',
     fontSize: tipografia.corpo.fontSize,
+  },
+  caixaErro: {
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: espaco.sm,
+    gap: espaco.xs,
+  },
+  textoErro: {
+    ...tipografia.corpo,
+    fontWeight: '600',
+  },
+  tentarNovamente: {
+    ...tipografia.corpo,
+    fontWeight: '700',
   },
   cartaoForm: {
     borderRadius: 12,

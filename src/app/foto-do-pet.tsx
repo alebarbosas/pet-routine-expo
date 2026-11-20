@@ -4,7 +4,8 @@ import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { usePetStore } from '../store/use-pet-store';
-import { cores, espaco, tipografia } from '../theme';
+import { useTheme } from '../context/theme-context';
+import { espaco, tipografia } from '../theme';
 
 type FalhaCamera = 'camera-negada' | 'camera-bloqueada' | 'galeria-negada';
 
@@ -19,10 +20,12 @@ const MENSAGENS_FALHA: Record<FalhaCamera, string> = {
 
 export default function TelaFotoDoPet() {
   const router = useRouter();
+  const { tema } = useTheme();
   const { petId } = useLocalSearchParams<{ petId?: string }>();
-  const atualizarFoto = usePetStore((state) => state.atualizarFoto);
+  const updatePet = usePetStore((state) => state.updatePet);
   const [fotoUri, setFotoUri] = useState<string | null>(null);
   const [falha, setFalha] = useState<FalhaCamera | null>(null);
+  const [salvando, setSalvando] = useState(false);
 
   async function escolherDaGaleria() {
     // Contrato de Três Tempos (Galeria):
@@ -72,16 +75,21 @@ export default function TelaFotoDoPet() {
     setFotoUri(resultado.assets[0].uri);
   }
 
-  function concluir() {
-    if (!fotoUri) return;
+  async function concluir() {
+    if (!fotoUri || salvando) return;
     if (petId) {
-      atualizarFoto(petId, fotoUri);
+      setSalvando(true);
+      try {
+        await updatePet(petId, { fotoUri });
+      } finally {
+        setSalvando(false);
+      }
     }
     router.back();
   }
 
   return (
-    <View style={estilos.tela}>
+    <View style={[estilos.tela, { backgroundColor: tema.fundo }]}>
       {fotoUri ? (
         <Image
           source={{ uri: fotoUri }}
@@ -89,16 +97,32 @@ export default function TelaFotoDoPet() {
           contentFit="cover"
         />
       ) : (
-        <View style={[estilos.previa, estilos.placeholder]}>
-          <Text style={estilos.textoPlaceholder}>
+        <View
+          style={[
+            estilos.previa,
+            estilos.placeholder,
+            { backgroundColor: tema.cartao, borderColor: tema.azulClaro },
+          ]}
+        >
+          <Text style={[estilos.textoPlaceholder, { color: tema.textoFraco }]}>
             Nenhuma foto selecionada (proporção 1:1)
           </Text>
         </View>
       )}
 
       {falha ? (
-        <View style={estilos.caixaErro}>
-          <Text style={estilos.textoErro}>{MENSAGENS_FALHA[falha]}</Text>
+        <View
+          style={[
+            estilos.caixaErro,
+            {
+              backgroundColor: tema.primariaSuave,
+              borderColor: tema.primaria,
+            },
+          ]}
+        >
+          <Text style={[estilos.textoErro, { color: tema.erro }]}>
+            {MENSAGENS_FALHA[falha]}
+          </Text>
         </View>
       ) : null}
 
@@ -107,7 +131,7 @@ export default function TelaFotoDoPet() {
           onPress={tirarFoto}
           style={({ pressed }) => [
             estilos.botao,
-            estilos.botaoPrimario,
+            { backgroundColor: tema.primaria },
             pressed && estilos.botaoPressionado,
           ]}
         >
@@ -119,23 +143,28 @@ export default function TelaFotoDoPet() {
           style={({ pressed }) => [
             estilos.botao,
             estilos.botaoSecundario,
+            { backgroundColor: tema.azulSuave, borderColor: tema.azulClaro },
             pressed && estilos.botaoPressionado,
           ]}
         >
-          <Text style={estilos.textoBotaoAzul}>Escolher da galeria</Text>
+          <Text style={[estilos.textoBotaoAzul, { color: tema.azulTexto }]}>
+            Escolher da galeria
+          </Text>
         </Pressable>
 
         <Pressable
           onPress={concluir}
-          disabled={!fotoUri}
+          disabled={!fotoUri || salvando}
           style={({ pressed }) => [
             estilos.botao,
-            estilos.botaoConfirmar,
-            !fotoUri && estilos.botaoDesabilitado,
+            { backgroundColor: tema.sucesso },
+            (!fotoUri || salvando) && estilos.botaoDesabilitado,
             pressed && fotoUri ? estilos.botaoPressionado : null,
           ]}
         >
-          <Text style={estilos.textoBotaoClaro}>Concluir</Text>
+          <Text style={estilos.textoBotaoClaro}>
+            {salvando ? 'Salvando...' : 'Concluir'}
+          </Text>
         </Pressable>
       </View>
     </View>
@@ -147,7 +176,6 @@ const estilos = StyleSheet.create({
     flex: 1,
     padding: 24,
     gap: 16,
-    backgroundColor: cores.fundo,
   },
   previa: {
     width: '100%',
@@ -155,28 +183,22 @@ const estilos = StyleSheet.create({
     borderRadius: 14,
   },
   placeholder: {
-    backgroundColor: cores.cartao,
     borderWidth: 1,
-    borderColor: cores.azulClaro,
     alignItems: 'center',
     justifyContent: 'center',
     padding: espaco.md,
   },
   textoPlaceholder: {
     ...tipografia.corpo,
-    color: cores.textoFraco,
     textAlign: 'center',
   },
   caixaErro: {
-    backgroundColor: cores.primariaSuave,
     borderWidth: 1,
-    borderColor: cores.primaria,
     borderRadius: 10,
     padding: espaco.sm,
   },
   textoErro: {
     ...tipografia.corpo,
-    color: cores.primariaEscura,
   },
   acoes: {
     gap: espaco.sm,
@@ -187,16 +209,8 @@ const estilos = StyleSheet.create({
     borderRadius: 10,
     alignItems: 'center',
   },
-  botaoPrimario: {
-    backgroundColor: cores.primaria,
-  },
   botaoSecundario: {
-    backgroundColor: cores.azulSuave,
     borderWidth: 1,
-    borderColor: cores.azulClaro,
-  },
-  botaoConfirmar: {
-    backgroundColor: cores.sucesso,
   },
   botaoDesabilitado: {
     opacity: 0.45,
@@ -210,7 +224,6 @@ const estilos = StyleSheet.create({
     fontSize: tipografia.corpo.fontSize,
   },
   textoBotaoAzul: {
-    color: cores.azulTexto,
     fontWeight: '600',
     fontSize: tipografia.corpo.fontSize,
   },
