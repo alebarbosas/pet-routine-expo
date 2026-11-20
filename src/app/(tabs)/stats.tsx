@@ -1,10 +1,12 @@
-﻿import { ScrollView, StyleSheet, Text, View } from 'react-native';
+﻿import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Link } from 'expo-router';
 import { usePetStore } from '../../store/use-pet-store';
-import { cores, espaco, tipografia } from '../../theme';
+import { useTheme } from '../../context/theme-context';
+import { espaco, tipografia } from '../../theme';
 
 export default function TelaEstatisticas() {
   const pets = usePetStore((state) => state.pets);
+  const { tema, modo, toggleTheme } = useTheme();
 
   const total = pets.length;
   const concluidos = pets.filter((p) => p.statusPasseio === 'concluido').length;
@@ -14,11 +16,13 @@ export default function TelaEstatisticas() {
 
   return (
     <ScrollView
-      style={styles.tela}
+      style={[styles.tela, { backgroundColor: tema.fundo }]}
       contentContainerStyle={styles.conteudo}
     >
-      <View style={styles.cartaoDestaque}>
-        <Text style={styles.rotuloDestaque}>Meta de passeios de hoje</Text>
+      <View style={[styles.cartaoDestaque, { backgroundColor: tema.primaria }]}>
+        <Text style={[styles.rotuloDestaque, { color: tema.azulClaro }]}>
+          Meta de passeios de hoje
+        </Text>
         <Text style={styles.valorDestaque}>{percentual}%</Text>
         <Text style={styles.subtituloDestaque}>
           {concluidos} de {total} passeios concluídos
@@ -26,33 +30,80 @@ export default function TelaEstatisticas() {
       </View>
 
       <View style={styles.grade}>
-        <View style={styles.cartaoMetrica}>
-          <Text style={styles.numero}>{total}</Text>
-          <Text style={styles.rotuloMetrica}>Total de Pets</Text>
+        <View
+          style={[
+            styles.cartaoMetrica,
+            { backgroundColor: tema.cartao, borderColor: tema.borda },
+          ]}
+        >
+          <Text style={[styles.numero, { color: tema.primaria }]}>{total}</Text>
+          <Text style={[styles.rotuloMetrica, { color: tema.textoFraco }]}>
+            Total de Pets
+          </Text>
         </View>
-        <View style={styles.cartaoMetrica}>
-          <Text style={[styles.numero, styles.corConcluido]}>{concluidos}</Text>
-          <Text style={styles.rotuloMetrica}>Concluídos</Text>
+        <View
+          style={[
+            styles.cartaoMetrica,
+            { backgroundColor: tema.cartao, borderColor: tema.borda },
+          ]}
+        >
+          <Text style={[styles.numero, { color: tema.sucesso }]}>{concluidos}</Text>
+          <Text style={[styles.rotuloMetrica, { color: tema.textoFraco }]}>
+            Concluídos
+          </Text>
         </View>
-        <View style={styles.cartaoMetrica}>
-          <Text style={[styles.numero, styles.corPendente]}>{pendentes}</Text>
-          <Text style={styles.rotuloMetrica}>Pendentes</Text>
+        <View
+          style={[
+            styles.cartaoMetrica,
+            { backgroundColor: tema.cartao, borderColor: tema.borda },
+          ]}
+        >
+          <Text style={[styles.numero, { color: tema.alerta }]}>{pendentes}</Text>
+          <Text style={[styles.rotuloMetrica, { color: tema.textoFraco }]}>
+            Pendentes
+          </Text>
         </View>
-        <View style={styles.cartaoMetrica}>
-          <Text style={[styles.numero, styles.corCancelado]}>{cancelados}</Text>
-          <Text style={styles.rotuloMetrica}>Cancelados</Text>
+        <View
+          style={[
+            styles.cartaoMetrica,
+            { backgroundColor: tema.cartao, borderColor: tema.borda },
+          ]}
+        >
+          <Text style={[styles.numero, { color: tema.erro }]}>{cancelados}</Text>
+          <Text style={[styles.rotuloMetrica, { color: tema.textoFraco }]}>
+            Cancelados
+          </Text>
         </View>
       </View>
 
-      <View style={styles.cartaoInfo}>
-        <Text style={styles.tituloSecao}>Atalhos Rápidos</Text>
-        <Text style={styles.corpo}>
-          Toque em qualquer pet na aba "Meus Pets" para abrir os detalhes, alterar foto 1:1, registrar passeio com GPS ou agendar um lembrete de notificação.
+      <View
+        style={[
+          styles.cartaoInfo,
+          { backgroundColor: tema.cartao, borderColor: tema.borda },
+        ]}
+      >
+        <Text style={[styles.tituloSecao, { color: tema.primaria }]}>
+          Tema e Preferências
         </Text>
-        <Link href="/settings" style={styles.link}>
+        <Text style={[styles.corpo, { color: tema.texto }]}>
+          Modo visual ativo: {modo === 'claro' ? 'Claro (Off-White)' : 'Escuro (Vinho)'}
+        </Text>
+        <Pressable
+          onPress={toggleTheme}
+          style={({ pressed }) => [
+            styles.botaoTema,
+            { backgroundColor: tema.azulSuave, borderColor: tema.azulClaro },
+            pressed && styles.pressionado,
+          ]}
+        >
+          <Text style={[styles.textoBotaoTema, { color: tema.azulTexto }]}>
+            Alternar para modo {modo === 'claro' ? 'Escuro' : 'Claro'}
+          </Text>
+        </Pressable>
+        <Link href="/settings" style={[styles.link, { color: tema.azulTexto }]}>
           Abrir Configurações (/settings)
         </Link>
-        <Link href="/sobre" style={styles.link}>
+        <Link href="/sobre" style={[styles.link, { color: tema.azulTexto }]}>
           Ver página institucional (/sobre)
         </Link>
       </View>
@@ -63,20 +114,17 @@ export default function TelaEstatisticas() {
 const styles = StyleSheet.create({
   tela: {
     flex: 1,
-    backgroundColor: cores.fundo,
   },
   conteudo: {
     padding: espaco.md,
     gap: espaco.md,
   },
   cartaoDestaque: {
-    backgroundColor: cores.primaria,
     borderRadius: 14,
     padding: espaco.lg,
     gap: 6,
   },
   rotuloDestaque: {
-    color: cores.azulClaro,
     fontSize: 14,
     fontWeight: '600',
   },
@@ -96,51 +144,47 @@ const styles = StyleSheet.create({
   },
   cartaoMetrica: {
     width: '48%',
-    backgroundColor: cores.cartao,
     borderRadius: 12,
     padding: espaco.md,
     gap: 4,
     borderWidth: 1,
-    borderColor: cores.borda,
   },
   numero: {
     fontSize: 26,
     fontWeight: '700',
-    color: cores.primaria,
-  },
-  corConcluido: {
-    color: cores.sucesso,
-  },
-  corPendente: {
-    color: cores.alerta,
-  },
-  corCancelado: {
-    color: cores.erro,
   },
   rotuloMetrica: {
     ...tipografia.corpo,
-    color: cores.textoFraco,
   },
   cartaoInfo: {
-    backgroundColor: cores.cartao,
     borderRadius: 12,
     padding: espaco.md,
     gap: espaco.sm,
     borderWidth: 1,
-    borderColor: cores.borda,
   },
   tituloSecao: {
     ...tipografia.titulo,
     fontSize: 16,
-    color: cores.primaria,
   },
   corpo: {
     ...tipografia.corpo,
     lineHeight: 20,
   },
-  link: {
-    color: cores.azulTexto,
+  botaoTema: {
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  textoBotaoTema: {
     fontWeight: '600',
     fontSize: tipografia.corpo.fontSize,
+  },
+  link: {
+    fontWeight: '600',
+    fontSize: tipografia.corpo.fontSize,
+  },
+  pressionado: {
+    opacity: 0.8,
   },
 });

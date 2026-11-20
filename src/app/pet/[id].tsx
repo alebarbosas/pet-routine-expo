@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -6,12 +6,20 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { rotuloEspecie, rotuloStatusPasseio } from '../../types/pet';
 import { usePetStore } from '../../store/use-pet-store';
 import { agendarLembretePasseio } from '../../services/notifications';
+import {
+  listarSessoesPasseio,
+  salvarSessaoPasseio,
+  type PasseioLog,
+} from '../../services/passeio-db';
+import { WalkTimer, formatarDuracao } from '../../components/walk-timer';
 import { TelaRegistro } from '../../screens/tela-registro';
-import { cores, espaco, tipografia } from '../../theme';
+import { useTheme } from '../../context/theme-context';
+import { espaco, tipografia } from '../../theme';
 
 export default function TelaDetalhePet() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { tema } = useTheme();
 
   const pet = usePetStore((state) => state.pets.find((p) => p.id === id));
   const alternarStatus = usePetStore((state) => state.alternarStatus);
@@ -20,14 +28,35 @@ export default function TelaDetalhePet() {
 
   const [registrandoPasseio, setRegistrandoPasseio] = useState(false);
   const [feedbackNotificacao, setFeedbackNotificacao] = useState<string | null>(null);
+  const [historico, setHistorico] = useState<PasseioLog[]>([]);
+
+  const carregarHistorico = useCallback(async () => {
+    if (!id) return;
+    try {
+      const lista = await listarSessoesPasseio(id);
+      setHistorico(lista);
+    } catch {
+      setHistorico([]);
+    }
+  }, [id]);
+
+  useEffect(() => {
+    carregarHistorico();
+  }, [carregarHistorico]);
 
   if (!pet) {
     return (
-      <View style={styles.centralizado}>
-        <Text style={styles.titulo}>Pet não encontrado</Text>
+      <View style={[styles.centralizado, { backgroundColor: tema.fundo }]}>
+        <Text style={[styles.titulo, { color: tema.primaria }]}>
+          Pet não encontrado
+        </Text>
         <Pressable
           onPress={() => router.back()}
-          style={({ pressed }) => [styles.botaoPrimario, pressed && styles.pressionado]}
+          style={({ pressed }) => [
+            styles.botaoPrimario,
+            { backgroundColor: tema.primaria },
+            pressed && styles.pressionado,
+          ]}
         >
           <Text style={styles.textoBotaoClaro}>Voltar</Text>
         </Pressable>
@@ -45,6 +74,15 @@ export default function TelaDetalhePet() {
         }}
         onCancelar={() => setRegistrandoPasseio(false)}
       />
+    );
+  }
+
+  async function handleSalvarCronometro(seconds: number) {
+    if (!pet) return;
+    await salvarSessaoPasseio(pet.id, seconds);
+    await carregarHistorico();
+    setFeedbackNotificacao(
+      `Sessão de ${formatarDuracao(seconds)} salva no histórico SQLite de ${pet.nome}!`
     );
   }
 
@@ -75,7 +113,10 @@ export default function TelaDetalhePet() {
   }
 
   return (
-    <ScrollView style={styles.tela} contentContainerStyle={styles.conteudo}>
+    <ScrollView
+      style={[styles.tela, { backgroundColor: tema.fundo }]}
+      contentContainerStyle={styles.conteudo}
+    >
       {pet.fotoUri ? (
         <Image
           source={{ uri: pet.fotoUri }}
@@ -83,21 +124,36 @@ export default function TelaDetalhePet() {
           contentFit="cover"
         />
       ) : (
-        <View style={[styles.foto, styles.fotoPlaceholder]}>
-          <Text style={styles.textoPlaceholder}>Sem foto cadastrada</Text>
+        <View
+          style={[
+            styles.foto,
+            styles.fotoPlaceholder,
+            { backgroundColor: tema.cartao, borderColor: tema.azulClaro },
+          ]}
+        >
+          <Text style={[styles.textoPlaceholder, { color: tema.textoFraco }]}>
+            Sem foto cadastrada
+          </Text>
         </View>
       )}
 
-      <View style={styles.cartao}>
-        <Text style={styles.titulo}>{pet.nome}</Text>
-        <Text style={styles.corpo}>
+      <View
+        style={[
+          styles.cartao,
+          { backgroundColor: tema.cartao, borderColor: tema.borda },
+        ]}
+      >
+        <Text style={[styles.titulo, { color: tema.primaria }]}>{pet.nome}</Text>
+        <Text style={[styles.corpo, { color: tema.texto }]}>
           Espécie: {rotuloEspecie(pet.especie)} • Porte: {pet.porte}
         </Text>
-        <Text style={styles.corpo}>Idade: {pet.idadeMeses} meses</Text>
-        <Text style={styles.corpo}>
+        <Text style={[styles.corpo, { color: tema.texto }]}>
+          Idade: {pet.idadeMeses} meses
+        </Text>
+        <Text style={[styles.corpo, { color: tema.texto }]}>
           Status do passeio: {rotuloStatusPasseio(pet.statusPasseio)}
         </Text>
-        <Text style={styles.corpo}>
+        <Text style={[styles.corpo, { color: tema.texto }]}>
           Última localização:{' '}
           {pet.local
             ? `Lat ${pet.local.latitude.toFixed(5)}, Lon ${pet.local.longitude.toFixed(5)} (±${Math.round(pet.local.precisaoMetros)}m)`
@@ -105,9 +161,51 @@ export default function TelaDetalhePet() {
         </Text>
       </View>
 
+      <WalkTimer onSalvarSessao={handleSalvarCronometro} />
+
+      <View
+        style={[
+          styles.cartao,
+          { backgroundColor: tema.cartao, borderColor: tema.borda },
+        ]}
+      >
+        <Text style={[styles.subtitulo, { color: tema.primaria }]}>
+          Histórico de Passeios (SQLite)
+        </Text>
+        {historico.length === 0 ? (
+          <Text style={[styles.legenda, { color: tema.textoFraco }]}>
+            Nenhuma sessão cronometrada salva para {pet.nome} ainda.
+          </Text>
+        ) : (
+          historico.map((item) => (
+            <View
+              key={String(item.id)}
+              style={[
+                styles.itemHistorico,
+                { backgroundColor: tema.superficie, borderColor: tema.borda },
+              ]}
+            >
+              <Text style={[styles.tempoHistorico, { color: tema.azulTexto }]}>
+                Duração: {formatarDuracao(item.seconds)}
+              </Text>
+              <Text style={[styles.legenda, { color: tema.textoFraco }]}>
+                {new Date(item.createdAt).toLocaleString('pt-BR')}
+              </Text>
+            </View>
+          ))
+        )}
+      </View>
+
       {feedbackNotificacao ? (
-        <View style={styles.caixaAviso}>
-          <Text style={styles.textoAviso}>{feedbackNotificacao}</Text>
+        <View
+          style={[
+            styles.caixaAviso,
+            { backgroundColor: tema.azulSuave, borderColor: tema.azulClaro },
+          ]}
+        >
+          <Text style={[styles.textoAviso, { color: tema.azulTexto }]}>
+            {feedbackNotificacao}
+          </Text>
         </View>
       ) : null}
 
@@ -116,37 +214,59 @@ export default function TelaDetalhePet() {
           onPress={() =>
             router.push({ pathname: '/foto-do-pet', params: { petId: pet.id } })
           }
-          style={({ pressed }) => [styles.botaoAzul, pressed && styles.pressionado]}
+          style={({ pressed }) => [
+            styles.botaoAzul,
+            { backgroundColor: tema.azulSuave, borderColor: tema.azulClaro },
+            pressed && styles.pressionado,
+          ]}
         >
-          <Text style={styles.textoBotaoAzul}>Alterar foto do pet (1:1)</Text>
+          <Text style={[styles.textoBotaoAzul, { color: tema.azulTexto }]}>
+            Alterar foto do pet (1:1)
+          </Text>
         </Pressable>
 
         <Pressable
           onPress={() => alternarStatus(pet.id)}
-          style={({ pressed }) => [styles.botaoSecundario, pressed && styles.pressionado]}
+          style={({ pressed }) => [
+            styles.botaoSecundario,
+            { backgroundColor: tema.cartao, borderColor: tema.borda },
+            pressed && styles.pressionado,
+          ]}
         >
-          <Text style={styles.textoBotaoEscuro}>
+          <Text style={[styles.textoBotaoEscuro, { color: tema.texto }]}>
             Alternar status ({pet.statusPasseio === 'concluido' ? 'marcar pendente' : 'marcar concluído'})
           </Text>
         </Pressable>
 
         <Pressable
           onPress={() => setRegistrandoPasseio(true)}
-          style={({ pressed }) => [styles.botaoPrimario, pressed && styles.pressionado]}
+          style={({ pressed }) => [
+            styles.botaoPrimario,
+            { backgroundColor: tema.primaria },
+            pressed && styles.pressionado,
+          ]}
         >
           <Text style={styles.textoBotaoClaro}>Registrar passeio com GPS/Câmera</Text>
         </Pressable>
 
         <Pressable
           onPress={handleAgendarLembrete}
-          style={({ pressed }) => [styles.botaoAlerta, pressed && styles.pressionado]}
+          style={({ pressed }) => [
+            styles.botaoAlerta,
+            { backgroundColor: tema.alerta },
+            pressed && styles.pressionado,
+          ]}
         >
           <Text style={styles.textoBotaoClaro}>Agendar lembrete de passeio (5s)</Text>
         </Pressable>
 
         <Pressable
           onPress={handleExcluir}
-          style={({ pressed }) => [styles.botaoPerigo, pressed && styles.pressionado]}
+          style={({ pressed }) => [
+            styles.botaoPerigo,
+            { backgroundColor: tema.erro },
+            pressed && styles.pressionado,
+          ]}
         >
           <Text style={styles.textoBotaoClaro}>Excluir pet</Text>
         </Pressable>
@@ -158,7 +278,6 @@ export default function TelaDetalhePet() {
 const styles = StyleSheet.create({
   tela: {
     flex: 1,
-    backgroundColor: cores.fundo,
   },
   conteudo: {
     padding: espaco.md,
@@ -170,7 +289,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: espaco.md,
     padding: espaco.md,
-    backgroundColor: cores.fundo,
   },
   foto: {
     width: '100%',
@@ -178,80 +296,82 @@ const styles = StyleSheet.create({
     borderRadius: 14,
   },
   fotoPlaceholder: {
-    backgroundColor: cores.cartao,
     borderWidth: 1,
-    borderColor: cores.azulClaro,
     alignItems: 'center',
     justifyContent: 'center',
   },
   textoPlaceholder: {
     ...tipografia.corpo,
-    color: cores.textoFraco,
   },
   cartao: {
-    backgroundColor: cores.cartao,
     borderRadius: 12,
     padding: espaco.md,
     gap: espaco.sm,
     borderWidth: 1,
-    borderColor: cores.borda,
   },
   titulo: {
     ...tipografia.titulo,
-    color: cores.primaria,
+  },
+  subtitulo: {
+    ...tipografia.subtitulo,
   },
   corpo: {
     ...tipografia.corpo,
     textTransform: 'capitalize',
   },
-  caixaAviso: {
-    backgroundColor: cores.azulSuave,
+  legenda: {
+    ...tipografia.legenda,
+  },
+  itemHistorico: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: espaco.sm,
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: cores.azulClaro,
+  },
+  tempoHistorico: {
+    fontWeight: '700',
+    fontSize: 14,
+  },
+  caixaAviso: {
+    borderWidth: 1,
     borderRadius: 10,
     padding: espaco.sm,
   },
   textoAviso: {
     ...tipografia.corpo,
-    color: cores.azulTexto,
   },
   acoes: {
     gap: espaco.sm,
   },
   botaoPrimario: {
-    backgroundColor: cores.primaria,
     paddingVertical: 14,
     paddingHorizontal: espaco.md,
     borderRadius: 10,
     alignItems: 'center',
   },
   botaoAzul: {
-    backgroundColor: cores.azulSuave,
     borderWidth: 1,
-    borderColor: cores.azulClaro,
     paddingVertical: 14,
     paddingHorizontal: espaco.md,
     borderRadius: 10,
     alignItems: 'center',
   },
   botaoSecundario: {
-    backgroundColor: cores.cartao,
     borderWidth: 1,
-    borderColor: cores.borda,
     paddingVertical: 14,
     paddingHorizontal: espaco.md,
     borderRadius: 10,
     alignItems: 'center',
   },
   botaoAlerta: {
-    backgroundColor: cores.alerta,
     paddingVertical: 14,
     paddingHorizontal: espaco.md,
     borderRadius: 10,
     alignItems: 'center',
   },
   botaoPerigo: {
-    backgroundColor: cores.erro,
     paddingVertical: 14,
     paddingHorizontal: espaco.md,
     borderRadius: 10,
@@ -263,12 +383,10 @@ const styles = StyleSheet.create({
     fontSize: tipografia.corpo.fontSize,
   },
   textoBotaoAzul: {
-    color: cores.azulTexto,
     fontWeight: '600',
     fontSize: tipografia.corpo.fontSize,
   },
   textoBotaoEscuro: {
-    color: cores.texto,
     fontWeight: '600',
     fontSize: tipografia.corpo.fontSize,
   },

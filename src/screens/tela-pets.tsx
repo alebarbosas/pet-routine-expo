@@ -15,13 +15,15 @@ import { ItemPet } from '../components/item-pet';
 import { ListaVazia } from '../components/lista-vazia';
 import { TelaRegistro } from './tela-registro';
 import { usePetStore } from '../store/use-pet-store';
-import { cores, espaco, tipografia } from '../theme';
+import { useTheme } from '../context/theme-context';
+import { espaco, tipografia } from '../theme';
 
 const ESPECIES: EspeciePet[] = ['cachorro', 'gato', 'ave', 'outro'];
 const PORTES: PortePet[] = ['pequeno', 'medio', 'grande'];
 
 export function TelaPets() {
   const router = useRouter();
+  const { tema } = useTheme();
   const pets = usePetStore((state) => state.pets);
   const adicionarPet = usePetStore((state) => state.adicionarPet);
   const alternarStatus = usePetStore((state) => state.alternarStatus);
@@ -81,7 +83,7 @@ export function TelaPets() {
   const secoes = agrupar(filtrarPorNome(pets, busca));
 
   return (
-    <View style={styles.tela}>
+    <View style={[styles.tela, { backgroundColor: tema.fundo }]}>
       <SectionList<Pet, Secao>
         sections={secoes}
         keyExtractor={(item) => item.id}
@@ -96,7 +98,14 @@ export function TelaPets() {
           />
         )}
         renderSectionHeader={({ section }) => (
-          <Text style={styles.cabecalhoSecao}>{section.title}</Text>
+          <Text
+            style={[
+              styles.cabecalhoSecao,
+              { color: tema.primaria, backgroundColor: tema.fundo },
+            ]}
+          >
+            {section.title}
+          </Text>
         )}
         ListEmptyComponent={
           <ListaVazia termoBusca={busca} totalPets={pets.length} />
@@ -111,6 +120,7 @@ export function TelaPets() {
                 onPress={() => setMostrarForm((v) => !v)}
                 style={({ pressed }) => [
                   styles.botaoNovo,
+                  { backgroundColor: tema.primaria },
                   pressed && styles.pressionado,
                 ]}
               >
@@ -119,76 +129,123 @@ export function TelaPets() {
                 </Text>
               </Pressable>
 
-              <Link href="/foto-do-pet" style={styles.linkAcao}>
+              <Link
+                href="/foto-do-pet"
+                style={[
+                  styles.linkAcao,
+                  {
+                    backgroundColor: tema.azulSuave,
+                    color: tema.azulTexto,
+                    borderColor: tema.azulClaro,
+                  },
+                ]}
+              >
                 Foto 1:1
               </Link>
             </View>
 
             {mostrarForm ? (
-              <View style={styles.cartaoForm}>
-                <Text style={styles.tituloForm}>Cadastrar novo pet</Text>
+              <View
+                style={[
+                  styles.cartaoForm,
+                  { backgroundColor: tema.cartao, borderColor: tema.borda },
+                ]}
+              >
+                <Text style={[styles.tituloForm, { color: tema.primaria }]}>
+                  Cadastrar novo pet
+                </Text>
                 <TextInput
                   value={novoNome}
                   onChangeText={setNovoNome}
                   placeholder="Nome do pet (ex: Thor)"
-                  placeholderTextColor={cores.textoFraco}
-                  style={styles.busca}
+                  placeholderTextColor={tema.textoFraco}
+                  style={[
+                    styles.busca,
+                    {
+                      borderColor: tema.borda,
+                      color: tema.texto,
+                      backgroundColor: tema.fundo,
+                    },
+                  ]}
                 />
 
-                <Text style={styles.rotulo}>Espécie</Text>
+                <Text style={[styles.rotulo, { color: tema.texto }]}>Espécie</Text>
                 <View style={styles.linhaOpcoes}>
-                  {ESPECIES.map((esp) => (
-                    <Pressable
-                      key={esp}
-                      onPress={() => setNovaEspecie(esp)}
-                      style={[
-                        styles.chip,
-                        novaEspecie === esp && styles.chipAtivo,
-                      ]}
-                    >
-                      <Text
+                  {ESPECIES.map((esp) => {
+                    const ativo = novaEspecie === esp;
+                    return (
+                      <Pressable
+                        key={esp}
+                        onPress={() => setNovaEspecie(esp)}
                         style={[
-                          styles.textoChip,
-                          novaEspecie === esp && styles.textoChipAtivo,
+                          styles.chip,
+                          {
+                            borderColor: ativo ? tema.azulClaro : tema.borda,
+                            backgroundColor: ativo ? tema.azulSuave : tema.fundo,
+                          },
                         ]}
                       >
-                        {esp}
-                      </Text>
-                    </Pressable>
-                  ))}
+                        <Text
+                          style={[
+                            styles.textoChip,
+                            { color: ativo ? tema.azulTexto : tema.texto },
+                            ativo && styles.textoChipAtivo,
+                          ]}
+                        >
+                          {esp}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
                 </View>
 
-                <Text style={styles.rotulo}>Porte</Text>
+                <Text style={[styles.rotulo, { color: tema.texto }]}>Porte</Text>
                 <View style={styles.linhaOpcoes}>
-                  {PORTES.map((prt) => (
-                    <Pressable
-                      key={prt}
-                      onPress={() => setNovoPorte(prt)}
-                      style={[
-                        styles.chip,
-                        novoPorte === prt && styles.chipAtivo,
-                      ]}
-                    >
-                      <Text
+                  {PORTES.map((prt) => {
+                    const ativo = novoPorte === prt;
+                    return (
+                      <Pressable
+                        key={prt}
+                        onPress={() => setNovoPorte(prt)}
                         style={[
-                          styles.textoChip,
-                          novoPorte === prt && styles.textoChipAtivo,
+                          styles.chip,
+                          {
+                            borderColor: ativo ? tema.azulClaro : tema.borda,
+                            backgroundColor: ativo ? tema.azulSuave : tema.fundo,
+                          },
                         ]}
                       >
-                        {prt}
-                      </Text>
-                    </Pressable>
-                  ))}
+                        <Text
+                          style={[
+                            styles.textoChip,
+                            { color: ativo ? tema.azulTexto : tema.texto },
+                            ativo && styles.textoChipAtivo,
+                          ]}
+                        >
+                          {prt}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
                 </View>
 
-                <Text style={styles.rotulo}>Idade (meses)</Text>
+                <Text style={[styles.rotulo, { color: tema.texto }]}>
+                  Idade (meses)
+                </Text>
                 <TextInput
                   value={novaIdade}
                   onChangeText={setNovaIdade}
                   keyboardType="numeric"
                   placeholder="12"
-                  placeholderTextColor={cores.textoFraco}
-                  style={styles.busca}
+                  placeholderTextColor={tema.textoFraco}
+                  style={[
+                    styles.busca,
+                    {
+                      borderColor: tema.borda,
+                      color: tema.texto,
+                      backgroundColor: tema.fundo,
+                    },
+                  ]}
                 />
 
                 <Pressable
@@ -196,6 +253,7 @@ export function TelaPets() {
                   disabled={novoNome.trim() === ''}
                   style={({ pressed }) => [
                     styles.botaoSalvar,
+                    { backgroundColor: tema.primaria },
                     novoNome.trim() === '' && styles.botaoDesabilitado,
                     pressed && styles.pressionado,
                   ]}
@@ -209,8 +267,15 @@ export function TelaPets() {
               value={busca}
               onChangeText={setBusca}
               placeholder="Buscar pet por nome..."
-              placeholderTextColor={cores.textoFraco}
-              style={styles.busca}
+              placeholderTextColor={tema.textoFraco}
+              style={[
+                styles.busca,
+                {
+                  borderColor: tema.borda,
+                  color: tema.texto,
+                  backgroundColor: tema.cartao,
+                },
+              ]}
             />
           </View>
         }
@@ -223,7 +288,6 @@ export function TelaPets() {
 const styles = StyleSheet.create({
   tela: {
     flex: 1,
-    backgroundColor: cores.fundo,
   },
   cabecalho: {
     gap: espaco.sm,
@@ -237,13 +301,11 @@ const styles = StyleSheet.create({
     gap: espaco.sm,
   },
   botaoNovo: {
-    backgroundColor: cores.primaria,
     paddingVertical: 10,
     paddingHorizontal: 14,
     borderRadius: 10,
   },
   botaoSalvar: {
-    backgroundColor: cores.primaria,
     paddingVertical: 12,
     borderRadius: 10,
     alignItems: 'center',
@@ -257,10 +319,7 @@ const styles = StyleSheet.create({
     fontSize: tipografia.corpo.fontSize,
   },
   linkAcao: {
-    backgroundColor: cores.azulSuave,
-    color: cores.azulTexto,
     borderWidth: 1,
-    borderColor: cores.azulClaro,
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderRadius: 10,
@@ -269,17 +328,14 @@ const styles = StyleSheet.create({
     fontSize: tipografia.corpo.fontSize,
   },
   cartaoForm: {
-    backgroundColor: cores.cartao,
     borderRadius: 12,
     padding: espaco.md,
     gap: espaco.sm,
     borderWidth: 1,
-    borderColor: cores.borda,
   },
   tituloForm: {
     ...tipografia.titulo,
     fontSize: 16,
-    color: cores.primaria,
   },
   rotulo: {
     ...tipografia.corpo,
@@ -295,19 +351,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: cores.borda,
-    backgroundColor: cores.fundo,
-  },
-  chipAtivo: {
-    backgroundColor: cores.azulSuave,
-    borderColor: cores.azulClaro,
   },
   textoChip: {
     ...tipografia.corpo,
     textTransform: 'capitalize',
   },
   textoChipAtivo: {
-    color: cores.azulTexto,
     fontWeight: '700',
   },
   conteudo: {
@@ -318,18 +367,13 @@ const styles = StyleSheet.create({
   cabecalhoSecao: {
     ...tipografia.titulo,
     fontSize: 18,
-    color: cores.primaria,
-    backgroundColor: cores.fundo,
     paddingVertical: espaco.sm,
   },
   busca: {
     borderWidth: 1,
-    borderColor: cores.borda,
     borderRadius: 10,
     padding: espaco.sm,
     fontSize: tipografia.corpo.fontSize,
-    color: cores.texto,
-    backgroundColor: cores.cartao,
   },
   pressionado: {
     opacity: 0.8,

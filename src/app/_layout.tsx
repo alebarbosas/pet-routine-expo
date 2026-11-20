@@ -1,64 +1,56 @@
-﻿import { Tabs, Link } from 'expo-router';
-import { Feather } from '@expo/vector-icons';
-import { StyleSheet, View } from 'react-native';
-import { cores } from '../theme';
-export default function TabsLayout() {
+﻿import { useEffect } from 'react';
+import { Stack, useRouter } from 'expo-router';
+import * as Notifications from 'expo-notifications';
+import '../services/notifications';
+import { ThemeProvider, useTheme } from '../context/theme-context';
+
+function NavegacaoRaiz() {
+  const router = useRouter();
+  const { tema } = useTheme();
+
+  useEffect(() => {
+    const recebidoSub = Notifications.addNotificationReceivedListener(() => {
+      // Notificação recebida em primeiro plano
+    });
+
+    const respostaSub = Notifications.addNotificationResponseReceivedListener(
+      (response) => {
+        const data = response.notification.request.content.data;
+        const petId = typeof data?.petId === 'string' ? data.petId : null;
+        if (petId) {
+          router.push({ pathname: '/pet/[id]', params: { id: petId } });
+        }
+      }
+    );
+
+    return () => {
+      recebidoSub.remove();
+      respostaSub.remove();
+    };
+  }, [router]);
+
   return (
-    <Tabs
+    <Stack
       screenOptions={{
-        headerStyle: { backgroundColor: cores.primaria },
+        headerStyle: { backgroundColor: tema.primaria },
         headerTintColor: '#FAF8F5',
         headerTitleStyle: { fontWeight: '700' },
-        tabBarActiveTintColor: cores.primaria,
-        tabBarInactiveTintColor: cores.textoFraco,
-        tabBarStyle: {
-          backgroundColor: cores.cartao,
-          borderTopColor: cores.borda,
-        },
-        headerRight: () => (
-          <View style={styles.acoesCabecalho}>
-            <Link href="/settings" style={styles.linkCabecalho}>
-              Ajustes
-            </Link>
-            <Link href="/sobre" style={styles.linkCabecalho}>
-              Sobre
-            </Link>
-          </View>
-        ),
+        contentStyle: { backgroundColor: tema.fundo },
       }}
     >
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Meus Pets',
-          tabBarIcon: ({ color, size }) => (
-            <Feather name="list" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="stats"
-        options={{
-          title: 'Estatísticas',
-          tabBarIcon: ({ color, size }) => (
-            <Feather name="bar-chart-2" size={size} color={color} />
-          ),
-        }}
-      />
-    </Tabs>
+      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen name="pet/[id]" options={{ title: 'Detalhes do Pet' }} />
+      <Stack.Screen name="foto-do-pet" options={{ title: 'Foto do Pet' }} />
+      <Stack.Screen name="settings" options={{ title: 'Configurações' }} />
+      <Stack.Screen name="sobre" options={{ title: 'Sobre o Aplicativo' }} />
+    </Stack>
   );
 }
 
-const styles = StyleSheet.create({
-  acoesCabecalho: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-    paddingRight: 16,
-  },
-  linkCabecalho: {
-    color: cores.azulClaro,
-    fontWeight: '600',
-    fontSize: 15,
-  },
-});
+export default function RootLayout() {
+  return (
+    <ThemeProvider>
+      <NavegacaoRaiz />
+    </ThemeProvider>
+  );
+}
