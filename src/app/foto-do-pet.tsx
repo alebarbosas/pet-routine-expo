@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { usePetStore } from '../store/use-pet-store';
 import { cores, espaco, tipografia } from '../theme';
 
 type FalhaCamera = 'camera-negada' | 'camera-bloqueada' | 'galeria-negada';
@@ -19,6 +20,7 @@ const MENSAGENS_FALHA: Record<FalhaCamera, string> = {
 export default function TelaFotoDoPet() {
   const router = useRouter();
   const { petId } = useLocalSearchParams<{ petId?: string }>();
+  const atualizarFoto = usePetStore((state) => state.atualizarFoto);
   const [fotoUri, setFotoUri] = useState<string | null>(null);
   const [falha, setFalha] = useState<FalhaCamera | null>(null);
 
@@ -73,7 +75,7 @@ export default function TelaFotoDoPet() {
   function concluir() {
     if (!fotoUri) return;
     if (petId) {
-      // Será conectado à store e API na Etapa 4
+      atualizarFoto(petId, fotoUri);
     }
     router.back();
   }
@@ -120,7 +122,7 @@ export default function TelaFotoDoPet() {
             pressed && estilos.botaoPressionado,
           ]}
         >
-          <Text style={estilos.textoBotaoEscuro}>Escolher da galeria</Text>
+          <Text style={estilos.textoBotaoAzul}>Escolher da galeria</Text>
         </Pressable>
 
         <Pressable
@@ -150,12 +152,12 @@ const estilos = StyleSheet.create({
   previa: {
     width: '100%',
     aspectRatio: 1,
-    borderRadius: 12,
+    borderRadius: 14,
   },
   placeholder: {
     backgroundColor: cores.cartao,
     borderWidth: 1,
-    borderColor: cores.textoFraco,
+    borderColor: cores.azulClaro,
     alignItems: 'center',
     justifyContent: 'center',
     padding: espaco.md,
@@ -166,15 +168,15 @@ const estilos = StyleSheet.create({
     textAlign: 'center',
   },
   caixaErro: {
-    backgroundColor: '#FEE2E2',
+    backgroundColor: cores.primariaSuave,
     borderWidth: 1,
-    borderColor: '#DC2626',
-    borderRadius: 8,
+    borderColor: cores.primaria,
+    borderRadius: 10,
     padding: espaco.sm,
   },
   textoErro: {
     ...tipografia.corpo,
-    color: '#991B1B',
+    color: cores.primariaEscura,
   },
   acoes: {
     gap: espaco.sm,
@@ -186,15 +188,15 @@ const estilos = StyleSheet.create({
     alignItems: 'center',
   },
   botaoPrimario: {
-    backgroundColor: '#2563EB',
+    backgroundColor: cores.primaria,
   },
   botaoSecundario: {
-    backgroundColor: cores.cartao,
+    backgroundColor: cores.azulSuave,
     borderWidth: 1,
-    borderColor: cores.textoFraco,
+    borderColor: cores.azulClaro,
   },
   botaoConfirmar: {
-    backgroundColor: '#16A34A',
+    backgroundColor: cores.sucesso,
   },
   botaoDesabilitado: {
     opacity: 0.45,
@@ -203,12 +205,12 @@ const estilos = StyleSheet.create({
     opacity: 0.8,
   },
   textoBotaoClaro: {
-    color: '#FFFFFF',
+    color: '#FAF8F5',
     fontWeight: '600',
     fontSize: tipografia.corpo.fontSize,
   },
-  textoBotaoEscuro: {
-    color: '#1E293B',
+  textoBotaoAzul: {
+    color: cores.azulTexto,
     fontWeight: '600',
     fontSize: tipografia.corpo.fontSize,
   },

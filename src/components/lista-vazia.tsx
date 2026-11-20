@@ -1,31 +1,23 @@
-// ============================================================
-// Prática 3 — Estado vazio da lista
-// Disciplina: Desenvolvimento Mobile (2026.2.DM) — CESAR School
-//
-// Toda lista tem ListEmptyComponent. Sem exceção.
-// E o texto do estado vazio precisa AJUDAR o usuário:
-//   - primeiro acesso → o que ele pode fazer
-//   - busca sem resultado → o que ele pode tentar
-// ============================================================
-import { StyleSheet, Text, View } from 'react-native';
-
+﻿import { StyleSheet, Text, View } from 'react-native';
 import { cores, espaco, tipografia } from '../theme';
 
 type ListaVaziaProps = {
-  // TODO P3.12: uma prop que permita distinguir "primeiro acesso" de "busca sem resultado".
-  termoBusca?: string;
+  termoBusca: string;
+  totalPets?: number;
 };
 
-export function ListaVazia({ termoBusca }: ListaVaziaProps) {
-  // TODO P3.13: dois textos diferentes, conforme o cenário.
-  const texto = termoBusca && termoBusca.trim() !== ''
-    ? `Nenhum pet encontrado para '${termoBusca}'.`
-    : 'Nenhum pet cadastrado. Que tal adicionar um?';
+export function ListaVazia({ termoBusca, totalPets }: ListaVaziaProps) {
+  const contaSemPets = totalPets === 0 && termoBusca.trim() === '';
 
   return (
     <View style={styles.container}>
-      <Text style={styles.texto}>
-        {texto}
+      <Text style={styles.titulo}>
+        {contaSemPets ? 'Nenhum pet cadastrado ainda' : 'Nenhum pet encontrado'}
+      </Text>
+      <Text style={styles.descricao}>
+        {contaSemPets
+          ? 'Toque em "+ Novo Pet" acima para cadastrar o primeiro pet da sua rotina.'
+          : `Não encontramos resultados para "${termoBusca}". Tente buscar por outro nome.`}
       </Text>
     </View>
   );
@@ -33,11 +25,21 @@ export function ListaVazia({ termoBusca }: ListaVaziaProps) {
 
 const styles = StyleSheet.create({
   container: {
-    // TODO P3.14: centralize e use padding generoso
+    padding: espaco.lg,
     alignItems: 'center',
-    padding: espaco.xl,
+    justifyContent: 'center',
+    gap: espaco.sm,
+    backgroundColor: cores.cartao,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: cores.borda,
   },
-  texto: {
+  titulo: {
+    ...tipografia.titulo,
+    fontSize: 18,
+    textAlign: 'center',
+  },
+  descricao: {
     ...tipografia.corpo,
     color: cores.textoFraco,
     textAlign: 'center',
